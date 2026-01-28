@@ -25,7 +25,6 @@ for (i in 1:nrow(analysis_mapping)) {
   varfun_name <- analysis_mapping$varfun[i]
 
   cat(paste0("\n\n\tProcessing: ", analysis.name, "\n"))
-
   # ANALYSIS INFO ----
   analysis.type <- 3 # sites
   Nmin.raw <- 30 # minimal # of participants in a study
@@ -74,7 +73,6 @@ for (i in 1:nrow(analysis_mapping)) {
     doAll = TRUE
   )
 
-
   if (nrow(ML2.df) <= 0 || (length(toRun$studiess) <= 0 && is.na(toRun$studiess))) {
     print("No tests to run, nothing selected!")
     next
@@ -91,8 +89,8 @@ for (i in 1:nrow(analysis_mapping)) {
     sites = character(),
     ya = integer(),
     yb = integer(),
-    na = integer(), # This is total_a, as per user's fixed logic
-    nb = integer(), # This is total_b, as per user's fixed logic
+    na = integer(),
+    nb = integer(),
     stringsAsFactors = FALSE
   )
 
@@ -109,46 +107,27 @@ for (i in 1:nrow(analysis_mapping)) {
     varfun <- match.fun(varfun_name)
     ML2.var_g <- varfun(ML2.sr_g)
 
-    group_a_name <- levels(ML2.var_g$Condition)[1]
-    group_b_name <- levels(ML2.var_g$Condition)[2]
+    # Create a contingency table from the Condition and Response factors
+    contingency_table <- table(Condition = ML2.var_g$Condition, Response = ML2.var_g$Response)
 
-    df_temp <- data.frame(
-      condition = ML2.var_g$Condition,
-      response = ML2.var_g$Response
-    )
-
-    df_temp$response_numeric <- ifelse(df_temp$response == "Yes", 1, 0)
-
-    ya <- sum(df_temp$response_numeric[df_temp$condition == group_a_name])
-    na <- sum(df_temp$condition == group_a_name) # This is total_a, as per user's fixed logic
-
-    yb <- sum(df_temp$response_numeric[df_temp$condition == group_b_name])
-    nb <- sum(df_temp$condition == group_b_name) # This is total_b, as per user's fixed logic
+    # Get the levels
+    condition_level <- levels(ML2.var_g$Condition)
+    response_level <- levels(ML2.var_g$Response)
 
     site_results <- data.frame(
       sites = runGroups[g],
-      ya = ya,
-      yb = yb,
-      na = na,
-      nb = nb,
+      ya = as.numeric(contingency_table[condition_level[1], response_level[1]]),
+      yb = as.numeric(contingency_table[condition_level[2], response_level[1]]),
+      na = sum(contingency_table[condition_level[1], ]),
+      nb = sum(contingency_table[condition_level[2], ]),
       stringsAsFactors = FALSE
     )
 
     results_df <- rbind(results_df, site_results)
   }
 
-    # Add original group names to column names
-    if (nrow(results_df) > 0) {
-      group_a_name <- levels(ML2.var_g$Condition)[1]
-      group_b_name <- levels(ML2.var_g$Condition)[2]
-      colnames(results_df) <- c(
-        "sites",
-        paste0("ya (", group_a_name, ")"),
-        paste0("yb (", group_b_name, ")"),
-        paste0("na (", group_a_name, ")"),
-        paste0("nb (", group_b_name, ")")
-      )
-    }
+  # Add original group names to column names
+  colnames(results_df) <- c("sites", "ya", "yb", "na", "nb")
 
   clean_table_filename <- file.path(project.root, "01_tables", "data", paste0(gsub("\\.", "_", analysis.name), "_clean_tables.csv"))
   rio::export(
