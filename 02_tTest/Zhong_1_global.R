@@ -7,7 +7,13 @@ library(reshape2)
 library(stats)
 
 # TODO: Set up your directory
-project.root <- file.path("~", "projects", "manyLabsE")
+# If
+
+
+sourcePath <- if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "/Desktop/git/"
+myWd <-  if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "~/Desktop/git/manyLabsE/02_tTest/"
+
+project.root <- file.path("~", sourcePath, "manyLabsE")
 OSFdata.root <- file.path(project.root, "OSFdata")
 
 source(file.path(project.root, "00_utils", "WYQ_manylabRs_SOURCE.R"))
@@ -157,97 +163,316 @@ ML2.var[[1]]$cleanDataFilter$source <- sourceColumn
 
 zhongData <- ML2.var[[1]]
 
-# Alexander: The following is Zhong data specific
+
+# ASDF---------
+
+# remotes::install_github("AlexanderLyNL/safestats", ref = “futility88")
+
+library(safestats)
+
+eValueColour <- "#A6CEE380"
+eValueColourBorder <- "#1F78B4E6"
+
+underColour <- adjustcolor("darkolivegreen", alpha.f=0.3)
+underColourBorder <- adjustcolor("darkolivegreen", alpha.f=0.8)
+overColour <- adjustcolor("#DAA52066", alpha.f=0.8)
+overColourBorder <- "#DAA52066"
+
+
+# library("safestats")
+pdfWidth <- 14
+pdfHeight <- 7
+
+cexFactor <- 1.3
+myCexAxis <- 2.25
+myCex <- 1.5
+
+betaFutility <- 0.2
+
+
+# Original study: Lower bound of effect size found in the original study
+deltaMin <- (4.95-3.75)/1.32
+
+# Prospective frequentist analysis
+freqDesign <- power.t.test(delta=deltaMin, alternative="one.sided",
+                           power=0.8)
+
+# Prospective e-value analysis
+designObj2 <- designSaviT(deltaMin=deltaMin, beta=0.2,
+                          testType="twoSample",
+                          alternative="greater", seed=1)
+
+designObj2Two <- designSaviT(deltaMin=deltaMin, beta=0.2,
+                             testType="twoSample",
+                             alternative="twoSided", seed=5)
+# designObj2 <- designObj2Two
+
+# Zhong data --------
 #
-dat <- zhongData$cleanDataFilter
-kep <- unique(dat$source)
+#   Data taken from: https://github.com/ManyLabsOpenScience/ManyLabs2
+#     Folder
+#       OSFData/
 #
-# dat$source[24] == "bogota" the factor only has one level, thus, we remove it
-allSources <- kep[-24]
+#   Extract based on
+#     OSFData/Moral Cleansing (Zhong & Liljenquist, 2006)/Zhong.1/Global/Zhong_1_study_global_include_all.R
+#
+#
+#
+# load(paste0(myWd, "zhongData.RData"))
 
-vep <- dat[dat$source %in% allSources, ]
-
-t.test(variable ~ factor, data = vep, var.equal = TRUE)
-
-
-# save(zhongData, file="zhongData.RData")
-
-
-# Analysis per source ----
 dat <- zhongData$cleanDataFilter
+
+head(dat)
 
 allSources <- unique(dat$source)
 
-# NOTE(Alexander): Unfortunately, it's unclear to me what happened to
-# bogota nCopied.zhon1
+
+
+# Remove "bogota" data, which only has participants i "Ethical" condition
+allSources <- allSources[-which(allSources=="bogota")]
+
+dat <- dat[dat$source %in% allSources, ]
+
+
+
+# Result containers
+#   General data set attributes
+n1Vec <- n2Vec <- ratios  <- numeric(length(allSources))
+
+
+#   sample sizes for p-value based inference
+n1VecFreq <- n2VecFreq <- pValues <- numeric(length(allSources))
+
+#   sample sizes for e-value based inference
 #
-# See: ML2.df[ML2.df$source=="bogota", ]$nCopied.zhon1
-allSources <- allSources[-24]
+n1VecE <- n2VecE <- firstTimes <- eValues <- numeric(length(allSources))
+n1VecEFut <- n2VecEFut <- firstTimesFut <- eValuesFut <- numeric(length(allSources))
 
-eValues <- pValues <- numeric(length(allSources))
+allEValueVecs <- matrix(nrow=designObj2$nPlan[1],
+                        ncol=length(allSources))
 
-designObj <- designSafeT(nPlan = c(40, 40), testType = "twoSample")
-
-for (i in seq_along(eValues)) {
-  someData <- dat[dat$source == allSources[i], ]
-
-  x <- someData$variable[someData$factor == "Ethical"]
-  y <- someData$variable[someData$factor == "Unethical"]
-
-  bob <- t.test(x, y, var.equal = TRUE, data = someData)
-  pValues[i] <- bob$p.value
-
-  bob <- safeTTest(x, y, designObj = designObj)
-  eValues[i] <- bob$eValue
-}
-
-pValues < 0.05
-eValues > 20
+allEValueVecsFut <- allEValueVecs
 
 
-i <- 1
+# Analyse data for each source
+# loop start -----
+for (i in 1:length(allSources)) {
+  someDat <- dat[dat$source==allSources[i], ]
 
-pValues <- matrix(nrow = length(allSources), ncol = 363)
+  ## Data -----
+  x <- someDat[which(someDat$factor=="Ethical"), ]$variable
+  y <- someDat[which(someDat$factor=="Unethical"), ]$variable
 
-sigPValue <- numeric(length(allSources))
-
-for (i in seq_along(sigPValue)) {
-  someData <- dat[dat$source == allSources[i], ]
-
-  x <- someData$variable[someData$factor == "Ethical"]
-  y <- someData$variable[someData$factor == "Unethical"]
-
+  # Remove non-available entries
+  x <- x[!is.na(x)]
   n1 <- length(x)
+
+  y <- y[!is.na(y)]
   n2 <- length(y)
 
-  ratio <- n2 / n1
+  # Store valid sample size characteristics
+  n1Vec[i] <- n1
+  n2Vec[i] <- n2
 
-  for (j in 2:n1) {
-    tempRes <- t.test(x[1:j], y[1:ceiling(j * ratio)], var.equal = TRUE)
-    pValue <- tempRes$p.value
-    pValues[i, j] <- pValue
+  ## Freq -----
+  n1Freq <- min(ceiling(freqDesign$n), n1)
+  n1VecFreq[i] <- n1Freq
 
-    if (pValue < 0.05 && sigPValue[i] != 1) {
-      sigPValue[i] <- 1
-    }
+  n2Freq <- min(ceiling(freqDesign$n), length(y))
+  n2VecFreq[i] <- n2Freq
+
+  tempResult <- t.test(x[1:n1Freq], y[1:n2Freq], var.equal=TRUE)
+  pValues[i] <- tempResult$p.value
+
+  ## e-value ----
+  n1EValue <- min(designObj2$nPlan[1], n1)
+  n2EValue <- min(designObj2$nPlan[2], n2)
+
+  n1VecE[i] <- n1EValue
+  n2VecE[i] <- n2EValue
+
+  ratios[i] <- n2EValue/n1EValue
+
+  tempResult <- saviTTestFut(
+    x[1:n1EValue],
+    y[1:n2EValue],
+    designObj=designObj2, sequential=TRUE,
+    futility=TRUE, esMinFutility=deltaMin)
+
+  eValues[i] <- max(tempResult$eValueVec, na.rm=TRUE)
+
+  # Used to fill up an e-value sequence if there is too little data
+  nLast <- length(tempResult$eValueVec)
+  nRemaining <- designObj2$nPlan[1] - nLast
+
+  if (nRemaining > 0) {
+    tempResult$eValueVec <- c(tempResult$eValueVec, rep(tempResult$eValueVec[nLast], nRemaining))
+
+
+    tempResult$eValueVecFut <- c(unlist(tempResult$eValueVecFut), rep(unlist(tempResult$eValueVecFut)[nLast], nRemaining))
   }
+
+  allEValueVecs[, i] <- tempResult$eValueVec
+  allEValueVecsFut[, i] <- tempResult$eValueVecFut
+
+  firstTimes[i] <- min(which(tempResult$eValueVec >= 20))
+  firstTimesFut[i] <- min(which(tempResult$eValueVecFut <= betaFutility))
+}
+# loop end ----
+
+# Futilty HERE new -------
+
+firstTimes
+firstTimesFut
+
+plot(1:57, exp(cumsum(log(allEValueVecsFut[27, ]))), type="l", log="y")
+
+
+
+# Freq result ----
+sum(pValues < 0.05)
+mean(pValues < 0.05)
+
+# Number of samples used in the frequentist analysis
+sum(n1VecFreq)
+sum(n2VecFreq)
+
+# Percentage saved by frequentist analysis
+(sum(n1Vec)-sum(n1VecFreq))/sum(n1Vec)
+(sum(n2Vec)-sum(n2VecFreq))/sum(n2Vec)
+
+
+# e-value result ----
+sum(eValues > 20)
+mean(eValues > 20)
+
+
+# Analysis of stopping time -----
+n1Fpt <- firstTimes
+n2Fpt <- ceil(firstTimes*ratios)
+
+notStoppedIndex <- which(is.infinite(firstTimes))
+n1Fpt[notStoppedIndex] <- n1VecE[notStoppedIndex]
+n2Fpt[notStoppedIndex] <- n2VecE[notStoppedIndex]
+
+# Average sample size used by e-value analysis
+mean(n1Fpt)
+mean(n2Fpt)
+
+# Percentage saved by e-value analysis
+(sum(n1Vec)-sum(n1Fpt))/sum(n1Vec)
+(sum(n2Vec)-sum(n2Fpt))/sum(n2Vec)
+
+
+# Plot-----
+stoppedTimes <- firstTimes
+stoppedTimes[is.infinite(firstTimes)] <- n1VecE[is.infinite(firstTimes)]
+
+fptHist <- hist(stoppedTimes, plot=FALSE,
+                breaks=1:designObj2$nPlan[1])
+
+y <- fptHist[["density"]]
+nB <- length(fptHist$breaks)
+yRange <- range(y, 0)
+
+alpha <- 0.05
+ylim <- c(-1*log(20/(2*alpha)), 2.75*log(1/alpha))
+
+someConstant <- (ylim[2]+log(alpha))/yRange[2]
+textHeightQuant <- (ylim[2]+log(alpha))+log(1/alpha)
+
+xlim <- c(0, designObj2$nPlan[1])
+
+
+notStoppedTable <- table(stoppedTimes[which(is.infinite(firstTimes))])
+
+
+notStoppedN <- as.integer(names(notStoppedTable))
+notStoppedBottom <- rep(0, length(notStoppedN))
+notStoppedTop <- notStoppedTable/57
+
+overIndexes <- which(is.finite(firstTimes))
+underIndexes <- which(is.infinite(firstTimes))
+
+
+myName <- "zhongExample"
+pdf(paste0(myName, ".pdf"), width=pdfWidth, height=pdfHeight)
+
+graphics::par(cex.main=1.5, mar=c(6, 6, 4, 0)+0.1, mgp=c(3.5, 1, 0), cex.lab=1.5,
+              font.lab=2, cex.axis=1.3, bty="n", las=1)
+
+plot(NULL, xlim = xlim, ylim = ylim, xlab = "", ylab = "",
+     cex.lab = 1.3, cex.axis = 1.3, las = 1, main=NULL,
+     xaxt = "n", yaxt = "n", bty = "n", type = "p", pch = 15,
+     bg = "grey")
+
+
+abline(h = log(1), col = "darkgrey", lwd = 2, lty = 2)
+abline(h = log(1/alpha))
+
+criticalP <- log(c(alpha/10, alpha, 1, 1/alpha))
+
+axis(side = 2, at = c(criticalP), tick = TRUE, las = 2, cex.axis = 1.3,
+     labels = c(alpha/10, alpha, "1", 1/alpha), cex.axis=myCexAxis)
+# axis(side = 1)
+axis(side = 1, at=c(0, 10*(1:3)), cex.axis=myCexAxis)
+
+ylab <- "Evidence"
+
+mtext(ylab, side = 2, line = 2.5, las = 0, cex = cexFactor*myCex,
+      adj=0.5, padj=-0.5)
+
+xlab <- "Sample size"
+
+mtext(xlab, side = 1, line = 2.5, las = 1,
+      cex = cexFactor*myCex, padj=0.5)
+
+
+rect(fptHist$breaks[-nB]+0.5, log(1/alpha),
+     fptHist$breaks[-1L]+0.5, someConstant*y+log(1/alpha),
+     col = eValueColour, border = eValueColourBorder, lwd=2,
+     angle = 45, density = NULL, lty = NULL)
+
+for (i in seq_along(notStoppedN)) {
+  tempN <- notStoppedN[i]
+
+  rect(xleft=tempN-0.5, ybottom=someConstant*notStoppedBottom[i]+log(1/alpha),
+       xright=tempN+0.5, ytop=someConstant*notStoppedTop[i]+log(1/alpha),
+       col = underColour, lwd=2, border=underColourBorder,
+       angle = 45, density = NULL, lty = NULL)
+
 }
 
-mean(sigPValue)
+for (j in underIndexes) {
+  n1Temp <- stoppedTimes[j]
+
+  lines(1:n1Temp, log(allEValueVecs[1:n1Temp, j]),
+        lwd=2, col=underColour)
+}
+# j <- 26
+
+for (j in underIndexes) {
+  n1Temp <- stoppedTimes[j]
+
+  points(n1Temp,
+         log(allEValueVecs[n1Temp, j]),
+         pch=15, col=underColourBorder)
+}
+
+for (i in overIndexes) {
+  n1Temp <- stoppedTimes[i]
+
+  lines(1:n1Temp, c(log(allEValueVecs[1:(n1Temp-1), i]), log(1/alpha)),
+        lwd=5, col=overColourBorder)
+
+  points(n1Temp,
+         log(1/alpha),
+         pch=15, col=overColourBorder)
+}
+
+mtext("e-value analyses of ManyLabs2 replications of Zhong & Liljenquist, 2006, study 2",
+      side = 3, line = 2.5, las = 1, cex = 2, adj=-0.3)
+
+dev.off()
 
 
-bep <- ML2.df[ML2.df$source == "bogota", ]
-
-bep$nCopied.zhon2
-
-someColumnNames <- c(
-  "zhon.dv.1_1", "zhon.dv.1_2", "zhon.dv.1_3",
-  "zhon.dv.1_4", "zhon.dv.1_5", "zhon.dv.1_6",
-  "zhon.dv.1_7", "zhon.dv.1_8", "zhon.dv.1_9",
-  "zhon.dv.1_10"
-)
-
-kaas <- bep[someColumnNames]
-sum(kaas[1, ])
-
-rowsum.data.frame(bep[someColumnNames])
