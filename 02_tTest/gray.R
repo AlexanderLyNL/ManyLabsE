@@ -64,15 +64,22 @@ freqDesign <- power.t.test(delta=deltaMin, power=0.8,
                            alternative="one.sided")
 
 # Prospective e-value analysis
-designObj1 <- designSaviT(deltaMin=deltaMin, beta=0.2, seed=1,
-                          testType="twoSample", alternative="greater")
-designObj1TwoSided <- designSaviT(deltaMin=deltaMin, beta=0.2, seed=2,
+# designObj1 <- designSaviT(deltaMin=deltaMin, beta=0.2, seed=1,
+#                           testType="twoSample", alternative="greater")
+designObj1 <- designSaviT(deltaMin=deltaMin, beta=0.2, seed=2,
                                   testType="twoSample")
 
 
 #   Data retrieved from the ManyLabs2 project, see Appendix below
 #
-load("~/dropbox/projects/savitutorial/code/grayData.RData")
+# load("~/dropbox/projects/savitutorial/code/grayData.RData")
+
+sourcePath <- if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "/Desktop/git/"
+myWd <-  if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "~/Desktop/git/manyLabsE/02_tTest/"
+
+
+load(paste0(myWd, "grayData.RData"))
+
 
 allSources <- unique(grayData$source)
 
@@ -87,11 +94,14 @@ n1VecFreq <- n2VecFreq <- pValues <- numeric(length(allSources))
 #   sample sizes for e-value based inference
 #
 n1VecE <- n2VecE <- firstTimes <- eValues <- numeric(length(allSources))
+n1VecEFut <- n2VecEFut <- firstTimesFut <- eValuesFut <- numeric(length(allSources))
 
 allEValueVecs <- matrix(nrow=designObj1$nPlan[1],
                         ncol=length(allSources))
+allEValueVecsFut <- allEValueVecs
 
-
+# i <- 53
+# Loop start -----
 for (i in seq_along(eValues)) {
   someDat <- grayData[grayData$source==allSources[i], ]
 
@@ -129,26 +139,41 @@ for (i in seq_along(eValues)) {
 
   ratios[i] <- n2EValue/n1EValue
 
-  tempResult <- saviTTest(x[1:n1EValue],
-                          y[1:n2EValue],
-                          designObj=designObj1, sequential=TRUE)
+  tempResult <- saviTTestFut(x[1:n1EValue],
+                             y[1:n2EValue],
+                             designObj=designObj1, sequential=TRUE,
+                             futility=TRUE,
+                             esMinFutility=deltaMin,
+                             nuMin=2)
+
+  eValues[i] <- max(tempResult$eValueVec, na.rm=TRUE)
 
   # Used to fill up an e-value sequence if there is too little data
   nLast <- length(tempResult$eValueVec)
   nRemaining <- designObj1$nPlan[1] - nLast
 
   if (nRemaining > 0) {
-    kaas <- c(tempResult$eValueVec, rep(tempResult$eValueVec[nLast], nRemaining))
     tempResult$eValueVec <- c(tempResult$eValueVec, rep(tempResult$eValueVec[nLast], nRemaining))
+
+
+    tempResult$eValueVecFut <- c(unlist(tempResult$eValueVecFut), rep(unlist(tempResult$eValueVecFut)[nLast], nRemaining))
   }
 
   allEValueVecs[, i] <- tempResult$eValueVec
-
-  eValues[i] <- max(tempResult$eValueVec, na.rm=TRUE)
+  allEValueVecsFut[, i] <- tempResult$eValueVecFut
 
   firstTimes[i] <- min(which(tempResult$eValueVec >= 20))
+  firstTimesFut[i] <- min(which(tempResult$eValueVecFut <= betaFutility))
 }
 
+firstTimes
+firstTimesFut
+
+
+
+min(allEValueVecsFut)
+
+firstTimes
 
 # Freq result ----
 sum(pValues < 0.05)
