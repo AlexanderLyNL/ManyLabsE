@@ -214,6 +214,9 @@ freqDesign <- power.t.test(delta=deltaMin, alternative="two.sided",
 designObj2 <- designSaviT(deltaMin=deltaMin, beta=0.2,
                              testType="twoSample",
                              alternative="twoSided", seed=5)
+
+
+
 # designObj2 <- designObj2Two
 
 # Zhong data --------
