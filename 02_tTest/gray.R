@@ -37,13 +37,20 @@
 #
 # library(safestats)
 
-eValueColour <- "#A6CEE380"
-eValueColourBorder <- "#1F78B4E6"
+overColour <- "#A6CEE380"
+overColourBorder <- "#1F78B4E6"
+underColour <- "#FFB90F86"
+underColourBorder <- "#FFB90FCC"
+continueColour <- "#556B2F4D"
+continueColourBorder <- "#556B2FCC"
 
-underColour <- adjustcolor("darkolivegreen", alpha.f=0.3)
-underColourBorder <- adjustcolor("darkolivegreen", alpha.f=0.8)
-overColour <- adjustcolor("#DAA52066", alpha.f=0.8)
-overColourBorder <- "#DAA52066"
+# eValueColour <- "#A6CEE380"
+# eValueColourBorder <- "#1F78B4E6"
+#
+# underColour <- adjustcolor("darkolivegreen", alpha.f=0.3)
+# underColourBorder <- adjustcolor("darkolivegreen", alpha.f=0.8)
+# overColour <- adjustcolor("#DAA52066", alpha.f=0.8)
+# overColourBorder <- "#DAA52066"
 
 # library("safestats")
 pdfWidth <- 14
@@ -51,6 +58,8 @@ pdfHeight <- 7
 
 cexFactor <- 1.3
 myCexAxis <- 2.25
+
+betaFutility <- 0.2
 
 # Gray data --------
 
@@ -66,9 +75,12 @@ freqDesign <- power.t.test(delta=deltaMin, power=0.8,
 # Prospective e-value analysis
 # designObj1 <- designSaviT(deltaMin=deltaMin, beta=0.2, seed=1,
 #                           testType="twoSample", alternative="greater")
-designObj1 <- designSaviT(deltaMin=deltaMin, beta=0.2, seed=2,
-                                  testType="twoSample")
+designObj1 <- designSaviT(deltaMin=deltaMin,
+                          power=0.8, seed=2,
+                          testType="twoSample",
+                          varEqual=FALSE, futility=TRUE)
 
+plot(designObj1)
 
 #   Data retrieved from the ManyLabs2 project, see Appendix below
 #
@@ -99,6 +111,7 @@ n1VecEFut <- n2VecEFut <- firstTimesFut <- eValuesFut <- numeric(length(allSourc
 allEValueVecs <- matrix(nrow=designObj1$nPlan[1],
                         ncol=length(allSources))
 allEValueVecsFut <- allEValueVecs
+
 
 # i <- 53
 # Loop start -----
@@ -139,14 +152,14 @@ for (i in seq_along(eValues)) {
 
   ratios[i] <- n2EValue/n1EValue
 
-  tempResult <- saviTTestFut(x[1:n1EValue],
-                             y[1:n2EValue],
-                             designObj=designObj1, sequential=TRUE,
-                             futility=TRUE,
-                             esMinFutility=deltaMin,
-                             nuMin=2)
+
+  tempResult <- saviTTest(
+    x[1:n1EValue], y[1:n2EValue], designObj=designObj1,
+    sequential=TRUE, nuMin=2)
 
   eValues[i] <- max(tempResult$eValueVec, na.rm=TRUE)
+
+  eValuesFut[i] <- min(tempResult$eValueFutVec, na.rm=TRUE)
 
   # Used to fill up an e-value sequence if there is too little data
   nLast <- length(tempResult$eValueVec)
@@ -154,27 +167,164 @@ for (i in seq_along(eValues)) {
 
   if (nRemaining > 0) {
     tempResult$eValueVec <- c(tempResult$eValueVec, rep(tempResult$eValueVec[nLast], nRemaining))
-
-
-    tempResult$eValueVecFut <- c(unlist(tempResult$eValueVecFut), rep(unlist(tempResult$eValueVecFut)[nLast], nRemaining))
+    tempResult$eValueFutVec <- c(unlist(tempResult$eValueFutVec), rep(unlist(tempResult$eValueFutVec)[nLast], nRemaining))
   }
 
   allEValueVecs[, i] <- tempResult$eValueVec
-  allEValueVecsFut[, i] <- tempResult$eValueVecFut
+  allEValueVecsFut[, i] <- tempResult$eValueFutVec
 
   firstTimes[i] <- min(which(tempResult$eValueVec >= 20))
-  firstTimesFut[i] <- min(which(tempResult$eValueVecFut <= betaFutility))
+  firstTimesFut[i] <- min(which(tempResult$eValueFutVec <= betaFutility))
 }
+
 
 firstTimes
 firstTimesFut
 
 
+# Scenario 1 ----
+# In the order of how the sources are mentioned, but can use randomisation
+#   Also only up to n1=47 and n2 = ratio*n1,
+#   where ratio n2End/n1End, for instance when n1End > 47.
+#   When n1End < 47, then the eValue is copied until n1=47
+#   For instance:
+#
+#   print(allEValueVecs[, 3])
+#
+plot(cumsum(log(allEValueVecs[47, ])), type="l")
+lines(cumsum(log(allEValueVecsFut[47, ])), col="red")
 
-min(allEValueVecsFut)
 
-firstTimes
+# Scenario 2 ----
+eMeta <- exp(rowSums(log(allEValueVecs)))
+eFutMeta <- exp(rowSums(log(allEValueVecsFut)))
 
+plot(eMeta, type="l", log="y")
+lines(eFutMeta, col="red")
+
+which(eFutMeta < 0.2)
+
+eMetaAverage <- rowMeans(allEValueVecs)
+eFutMetaAverage <- rowMeans(allEValueVecsFut)
+
+plot(eMetaAverage, type="l", log="y")
+lines(eFutMetaAverage, col="red")
+
+which(eFutMetaAverage < 0.2)
+
+# Scenario 3 ---------
+checkXY <- function(x, y) {
+  if (length(x) >= 1 && length(y) >= 1)
+    return(TRUE)
+
+  if (is.null(x))
+    return(FALSE)
+
+  if (is.null(y))
+    return(FALSE)
+
+  if (is.na(x))
+    return(FALSE)
+
+  if (is.na(y))
+    return(FALSE)
+
+  return(TRUE)
+}
+
+
+xNa <- which(is.na(grayData$gray1.2))
+yNa <- which(is.na(grayData$gray2.2))
+
+grayDataCleaned <- grayData[-intersect(xNa, yNa), ]
+
+nTotal <- length(unique(grayDataCleaned$uID))
+
+set.seed(1)
+someOrder <- sample(unique(grayDataCleaned$uID), nTotal)
+
+sourceDataTracker <- vector(mode="list", length=length(allSources))
+names(sourceDataTracker) <- allSources
+
+for (neem in allSources)
+  sourceDataTracker[[neem]] <- list(x=NULL, y=NULL)
+
+eFutCollection <- eCollection <- as.data.frame(matrix(ncol=length(allSources), nrow=nTotal))
+names(eFutCollection) <- names(eCollection) <- allSources
+eFutCollection[1, ] <- eCollection[1, ] <- 1
+
+
+for (i in seq_along(someOrder)) {
+  # for (i in 1:1000) {
+  someId <- someOrder[i]
+
+  someRow <- grayDataCleaned[which(grayDataCleaned$uID==someId), ]
+
+  someSource <- someRow$source
+
+  sourceDataTemp <- sourceDataTracker[[someSource]]
+
+  x <- sourceDataTemp$x
+  y <- sourceDataTemp$y
+
+  xTemp <- someRow$gray1.2
+  yTemp <- someRow$gray2.2
+
+  if (!is.na(xTemp)) {
+    sourceDataTracker[[someSource]]$x <- x <- c(x, xTemp)
+  } else {
+    yTemp <- someRow$gray2.2
+    sourceDataTracker[[someSource]]$y <- y <- c(y, yTemp)
+  }
+
+  if (i >1) {
+    someCheck <- checkXY(x, y)
+
+    if (someCheck) {
+      tempRes <- saviTTest(x, y, designObj=designObj1, sequential=FALSE)
+      eCollection[[someSource]][i] <- tempRes$eValue
+      eFutCollection[[someSource]][i] <- tempRes$eValueFut
+    } else {
+      eCollection[[someSource]][i] <- 1
+      eFutCollection[[someSource]][i] <- 1
+    }
+
+    for (source in allSources) {
+      if (source!=someSource) {
+        eCollection[[source]][i] <- eCollection[[source]][i-1]
+        eFutCollection[[source]][i] <- eFutCollection[[source]][i-1]
+      }
+    }
+  }
+}
+
+eMatrix <- as.matrix(eCollection)
+eFutMatrix <- as.matrix(eFutCollection)
+
+eMeta <- exp(rowSums(log(eMatrix)))
+eFutMeta <- exp(rowSums(log(eFutMatrix)))
+
+plot(1:nTotal, eMeta, type="l", log="y")
+lines(1:nTotal, eFutMeta, col="red")
+
+which(eFutMeta < 0.2)
+
+
+
+eMetaAverage <- rowMeans(eMatrix)
+eFutMetaAverage <- rowMeans(eFutMatrix)
+
+plot(1:nTotal, eMetaAverage, type="l", log="y")
+lines(1:nTotal, eFutMetaAverage, col="red")
+
+which(eFutMetaAverage < 0.2)
+
+
+
+
+
+
+# Old tutorial paper stuff -----
 # Freq result ----
 sum(pValues < 0.05)
 mean(pValues < 0.05)
@@ -276,7 +426,7 @@ mtext(xlab, side = 1, line = 2.5, las = 1,
 
 rect(fptHist$breaks[-nB]+0.5, log(1/alpha),
      fptHist$breaks[-1L]+0.5, someConstant*y+log(1/alpha),
-     col = eValueColour, border = eValueColourBorder, lwd=2,
+     col = overColour, border = overColourBorder, lwd=2,
      angle = 45, density = NULL, lty = NULL)
 
 for (i in seq_along(notStoppedN)) {
