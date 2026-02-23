@@ -191,9 +191,20 @@ firstTimesFut
 #
 #   print(allEValueVecs[, 3])
 #
-plot(cumsum(log(allEValueVecs[47, ])), type="l")
-lines(cumsum(log(allEValueVecsFut[47, ])), col="red")
 
+eMeta <- exp(cumsum(log(allEValueVecs[47, ])))
+eFutMeta <- exp(cumsum(log(allEValueVecsFut[47, ])))
+
+plot(eMeta, type="l", log="y")
+lines(eFutMeta, col="red")
+
+eMetaAverage <- cumsum(allEValueVecs[47, ])/(1:length(allSources))
+eFutMetaAverage <- cumsum(allEValueVecsFut[47, ])/(1:length(allSources))
+
+plot(eMetaAverage, type="l", log="y")
+lines(eFutMetaAverage, col="red")
+
+which(eFutMetaAverage<0.2)
 
 # Scenario 2 ----
 eMeta <- exp(rowSums(log(allEValueVecs)))
