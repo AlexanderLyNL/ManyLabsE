@@ -101,8 +101,33 @@ stat.params <<- ML2.in$stat.params
 
 
 t.test(variable ~ factor, data = ML2.var[[g]]$cleanDataFilter, var.equal = FALSE)
-write.csv(
-  ML2.df,
-  file = file.path(project.root,"02_tTest","norenzayanData"),
-  row.names = FALSE
+
+#write.csv(ML2.df, file = file.path(project.root,"02_tTest","norenzayanData"), row.names = FALSE)
+
+extendedCleanDataFilter <- ML2.var[[g]]$cleanDataFilter
+extendedCleanDataFilter$study.order <- merge(ML2.df, extendedCleanDataFilter, by = "uID")$study.order
+
+n_studies <- max(extendedCleanDataFilter$study.order)
+
+results <- data.frame(
+  study.order = character(n_studies),
+  mean_group1 = numeric(n_studies),
+  mean_group2 = numeric(n_studies),
+  p.value = numeric(n_studies),
+  stringsAsFactors = FALSE
 )
+# the global analysis at index 0
+res <- t.test(variable ~ factor, data = extendedCleanDataFilter, var.equal = FALSE)
+results$study.order[0] <- 0
+results$mean_group1[0] <- res$estimate[1]
+results$mean_group2[0] <- res$estimate[2]
+results$p.value[0] <- res$p.value 
+
+for (i in seq_len(n_studies)){
+  res <- t.test(variable ~ factor, data = extendedCleanDataFilter[extendedCleanDataFilter$study.order == i,], var.equal = FALSE)
+  results$study.order[i] <- i
+  results$mean_group1[i] <- res$estimate[1]
+  results$mean_group2[i] <- res$estimate[2]
+  results$p.value[i] <- res$p.value 
+}
+#view(results)
