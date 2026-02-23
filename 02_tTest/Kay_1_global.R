@@ -3,6 +3,13 @@ library(plyr)
 library(rio)
 library(tidyverse)
 
+library(safestats)
+
+#remotes::install_github("AlexanderLyNL/safestats", ref ="futility88")
+
+source(file.path("~", "projects", "manyLabsE","02_tTest","t_test_functions.R"))
+
+
 # TODO: Set up your directory
 project.root <- file.path("~", "projects", "manyLabsE")
 OSFdata.root <- file.path(project.root, "OSFdata")
@@ -101,10 +108,34 @@ stat.params <<- ML2.in$stat.params
 
 
 t.test(variable ~ factor, data = ML2.var[[g]]$cleanDataFilter, var.equal = FALSE)
-write.csv(
-  ML2.df,
-  file = file.path(project.root,"02_tTest","kayData"),
-  row.names = FALSE
-)
+
+#write.csv(ML2.df, file = file.path(project.root,"02_tTest","kayData"), row.names = FALSE)
 
 #NOTE: we get t-statistic: 0.94092, while the original study says -0.94092 - the order of the groups is reversed 
+
+#############################################################################################################
+## extended clean data filter and frequentist analysis
+
+extendedCleanDataFilter <- ML2.var[[g]]$cleanDataFilter
+extendedCleanDataFilter$study.order <- merge(ML2.df, extendedCleanDataFilter, by = "uID")$study.order
+# view(extendedCleanDataFilter)
+
+variable <- colnames(extendedCleanDataFilter)[2]
+factor <- colnames(extendedCleanDataFilter)[3]
+frequentist_results <- full_freq_t_test_analysis(extendedCleanDataFilter, variable, factor, var_equal = FALSE, bootstrap=FALSE, n_bootstrap = 1, deltaMin = NULL, beta = NULL)
+#view(frequentist_results)
+
+#############################################################################################################
+## sequential analysis
+
+# THIS IS SUBSTUDY SPECIFFIC
+original_study_estimated_effect_size <- 0.5
+esMinFutility <- 0.7*original_study_estimated_effect_size
+deltaMin <- 0.7*original_study_estimated_effect_size 
+alpha <- 0.05
+betaFutility <- 0.05
+
+sequential_results <- full_seq_t_test_analysis(extendedCleanDataFilter, alpha, betaFutility, deltaMin, esMinFutility, variable, factor, n_permutations = 10)
+#view(sequential_results)
+
+
