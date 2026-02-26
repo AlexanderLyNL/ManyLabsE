@@ -104,15 +104,24 @@ full_freq_t_test_analysis <- function(ECDF, variable, factor, var_equal = FALSE,
 ##############################################################################################################################################################
 # Sequential analysis
 
-full_seq_t_test_analysis <- function(ECDF, alpha, betaFutility, deltaMin, esMinFutility, variable, factor, n_permutations = 10){
+metaType3Helper <- function(v, M) {
+  nz <- v != 0
+  vals <- M[cbind(which(nz), v[nz])]
+  return(prod(vals))
+}
+
+
+full_seq_t_test_analysis <- function(PECDF, alpha, betaFutility, deltaMin, esMinFutility, varEqual = FALSE){
   
-  n_substudies <- max(ECDF$study.order)
-  distinct_factors <- unique(ECDF[[factor]])
+  n_substudies <- max(PECDF$study.order)
+  variable <- colnames(PECDF)[2]
+  factor <- colnames(PECDF)[3]
+  distinct_factors <- unique(PECDF[[factor]])
   factor1 <- distinct_factors[1]
   factor2 <- distinct_factors[2]
   
   sequential_results <- data.frame(
-    study.order    = 1:n_substudies * n_permutations, # because we divide later
+    study.order    = 1:n_substudies,
     stopped_times  = integer(n_substudies),
     final_times    = integer(n_substudies),
     percent_saved  = numeric(n_substudies),
@@ -121,15 +130,16 @@ full_seq_t_test_analysis <- function(ECDF, alpha, betaFutility, deltaMin, esMinF
     stopped_for_F  = numeric(n_substudies)
   )
   
-  
-  # to optimize speed swap the places of k and i !
+  # savi design object
+  DO <- designSaviT(deltaMin=deltaMin, testType="twoSample", alternative="twoSided", futility = TRUE, wantSampling = FALSE)
+  # matrices containing the e/f-value sequences
+  n_max_max <- max(table(PECDF$study.order))
+  eValueMat <- matrix(1, nrow = n_substudies, ncol = n_max_max)
+  fValueMat <- matrix(1, nrow = n_substudies, ncol = n_max_max)
   
   for (i in seq_len(n_substudies)) {
-    subStudy <- ECDF[ECDF$study.order == i, ]
-    sequential_results$final_times[i] <- nrow(subStudy)*n_permutations # because we divide later
-  
-  for (k in seq_len(n_permutations)){
-    subStudy <- subStudy[sample(nrow(subStudy)),]
+    subStudy <- PECDF[PECDF$study.order == i, ]
+    sequential_results$final_times[i] <- nrow(subStudy)
     x <- subStudy[subStudy[[factor]] == factor1, ][[variable]]
     y <- subStudy[subStudy[[factor]] == factor2, ][[variable]]
     n1 <- 0
@@ -144,33 +154,65 @@ full_seq_t_test_analysis <- function(ECDF, alpha, betaFutility, deltaMin, esMinF
         n2 <- n2 + 1
       }
       
-      if (n1 < 2 || n2 < 2){next}
+      if (n1 < 2 || n2 < 2 || all(x[1:n1] == x[1]) || all(y[1:n2] == y[1])){next}
 
-      DO <- designSaviT(deltaMin=deltaMin, testType="twoSample", alternative="twoSided", futility = TRUE, wantSampling = FALSE)
-      res <- saviTTest(x[1:n1], y[1:n2], designObj = DO, sequential = FALSE, varEqual = TRUE, futility=TRUE, esMinFutility = esMinFutility)
+      res <- saviTTest(x[1:n1], y[1:n2], designObj = DO, sequential = FALSE, varEqual = varEqual, futility = TRUE, esMinFutility = esMinFutility)
       eValue <- unname(res$eValue)
       fValue <- unname(res$eValueFut)
+      eValueMat[i,j] <- eValue
+      fValueMat[i,j] <- fValue
+      
       if (eValue >= 1/alpha){
-        sequential_results$stopped_times[i] <- sequential_results$stopped_times[i] + j
-        sequential_results$stopped_for_R[i] <- sequential_results$stopped_for_R[i] + 1
+        sequential_results$stopped_times[i] <- j
+        sequential_results$stopped_for_R[i] <- 1
+        if (j < n_max_max){
+          eValueMat[i,(j+1):n_max_max] <- eValue
+          fValueMat[i,(j+1):n_max_max] <- fValue
+        }
         break
       }
       if (fValue <= betaFutility){
-        sequential_results$stopped_times[i] <- sequential_results$stopped_times[i] + j
-        sequential_results$stopped_for_F[i] <- sequential_results$stopped_for_F[i] + 1
+        sequential_results$stopped_times[i] <- j
+        sequential_results$stopped_for_F[i] <- 1
+        if (j < n_max_max){
+          eValueMat[i,(j+1):n_max_max] <- eValue
+          fValueMat[i,(j+1):n_max_max] <- fValue
+        }
         break
       }
       if(j == nrow(subStudy)){
-        sequential_results$stopped_times[i] <- sequential_results$stopped_times[i] + j
-        sequential_results$stopped_for_N[i] <- sequential_results$stopped_for_N[i] + 1
+        sequential_results$stopped_times[i] <- j
+        sequential_results$stopped_for_N[i] <- 1
+        if (j < n_max_max){
+          eValueMat[i,(j+1):n_max_max] <- eValue
+          fValueMat[i,(j+1):n_max_max] <- fValue
+        }
         break
       }
     }
   }
-  }
-  sequential_results <- sequential_results/n_permutations
-  sequential_results$percent_saved <- (1-sequential_results$stopped_times/sequential_results$final_times)*100
   
-  return(sequential_results)
+  sequential_results$percent_saved <- (1-sequential_results$stopped_times/sequential_results$final_times)*100
+  metaEType1 <- exp(cumsum(log(eValueMat[,n_max_max])))
+  metaFType1 <- exp(cumsum(log(fValueMat[,n_max_max])))
+  metaEType2 <- exp(colSums(log(eValueMat)))
+  metaFType2 <- exp(colSums(log(fValueMat)))
+  metaEType3 <- rep(1,nrow(PECDF))
+  metaFType3 <- rep(1,nrow(PECDF))
+  
+  
+  # IMPORTANT, TYPE3 SHOULD NOT BE USED on an PECDF which is ordered by factor values !
+  
+  vector_index <- rep(0,n_substudies)
+  for (i in seq_along(PECDF$study.order)){
+    SO <- PECDF$study.order[i]
+    vector_index[SO] <- vector_index[SO] + 1
+    metaEType3[i] <- metaType3Helper(vector_index, eValueMat)
+    metaFType3[i] <- metaType3Helper(vector_index, fValueMat)
+  }
+  
+  return(list(sequential_results = sequential_results, eValueMat = eValueMat, fValueMat = fValueMat,
+              metaEType1 = metaEType1, metaFType1 = metaFType1, metaEType2 = metaEType2, metaFType2 = metaFType2,
+              metaEType3 = metaEType3, metaFType3 = metaFType3))
 }
 

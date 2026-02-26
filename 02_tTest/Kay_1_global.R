@@ -120,22 +120,48 @@ extendedCleanDataFilter <- ML2.var[[g]]$cleanDataFilter
 extendedCleanDataFilter$study.order <- merge(ML2.df, extendedCleanDataFilter, by = "uID")$study.order
 # view(extendedCleanDataFilter)
 
+# THIS IS STUDY-SPECIFFIC
+varEqual <- FALSE
+
 variable <- colnames(extendedCleanDataFilter)[2]
 factor <- colnames(extendedCleanDataFilter)[3]
-frequentist_results <- full_freq_t_test_analysis(extendedCleanDataFilter, variable, factor, var_equal = FALSE, bootstrap=FALSE, n_bootstrap = 1, deltaMin = NULL, beta = NULL)
+frequentist_results <- full_freq_t_test_analysis(extendedCleanDataFilter, variable, factor, var_equal = varEqual)
 #view(frequentist_results)
 
-#############################################################################################################
+##################################################################################################################
 ## sequential analysis
 
-# THIS IS SUBSTUDY SPECIFFIC
+# THIS IS STUDY-SPECIFFIC
 original_study_estimated_effect_size <- 0.5
+
 esMinFutility <- 0.7*original_study_estimated_effect_size
 deltaMin <- 0.7*original_study_estimated_effect_size 
-alpha <- 0.05
-betaFutility <- 0.05
+alpha <- 0.1
+betaFutility <- 0.1
 
-sequential_results <- full_seq_t_test_analysis(extendedCleanDataFilter, alpha, betaFutility, deltaMin, esMinFutility, variable, factor, n_permutations = 10)
-#view(sequential_results)
+# permute the rows of ECDF to avoid only sampling one group
+PECDF <- extendedCleanDataFilter[sample(nrow(extendedCleanDataFilter)), ]
+sequential_results_list <- full_seq_t_test_analysis(PECDF, alpha, betaFutility, deltaMin, esMinFutility, varEqual = varEqual)
+#view(sequential_results_list$sequential_results)
+eValueMat <- sequential_results_list$eValueMat
+fValueMat <- sequential_results_list$fValueMat
+metaEType1 <- sequential_results_list$metaEType1
+metaFType1 <- sequential_results_list$metaFType1
+metaEType2 <- sequential_results_list$metaEType2
+metaFType2 <- sequential_results_list$metaFType2
+metaEType3 <- sequential_results_list$metaEType3
+metaFType3 <- sequential_results_list$metaFType3
+
+#print(log(metaEType1))
+#plot(log(metaFType3), type = 'line')
+
+all_results <- list(
+  extendedCleanDataFilter = extendedCleanDataFilter,
+  frequentist_results = frequentist_results,
+  sequential_results_list = sequential_results_list
+)
+
+# THIS IS STUDY-SPECIFFIC
+#saveRDS(all_results, file = file.path("~", "projects", "manyLabsE","02_tTest","KayData.rds"))
 
 

@@ -3,6 +3,10 @@ library(plyr)
 library(rio)
 library(tidyverse)
 
+library(safestats)
+
+source(file.path("~", "projects", "manyLabsE","02_tTest","t_test_functions.R"))
+
 # TODO: Set up your directory
 project.root <- file.path("~", "projects", "manyLabsE")
 OSFdata.root <- file.path(project.root, "OSFdata")
@@ -103,30 +107,53 @@ t.test(variable1 ~ variable2, data = ML2.var[[g]]$cleanDataFilter, var.equal = F
 
 #write.csv(ML2.df, file = file.path(project.root,"02_tTest","ross2Data"), row.names = FALSE)
 
+#############################################################################################################
+## extended clean data filter and frequentist analysis
+
 extendedCleanDataFilter <- ML2.var[[g]]$cleanDataFilter
 extendedCleanDataFilter$study.order <- merge(ML2.df, extendedCleanDataFilter, by = "uID")$study.order
+# view(extendedCleanDataFilter)
 
-n_studies <- max(extendedCleanDataFilter$study.order)
+# THIS IS STUDY-SPECIFFIC
+varEqual <- FALSE
 
-results <- data.frame(
-  study.order = character(n_studies),
-  mean_group1 = numeric(n_studies),
-  mean_group2 = numeric(n_studies),
-  p.value = numeric(n_studies),
-  stringsAsFactors = FALSE
+variable <- colnames(extendedCleanDataFilter)[2]
+factor <- colnames(extendedCleanDataFilter)[3]
+frequentist_results <- full_freq_t_test_analysis(extendedCleanDataFilter, variable, factor, var_equal = varEqual)
+#view(frequentist_results)
+
+##################################################################################################################
+## sequential analysis
+
+# THIS IS STUDY-SPECIFFIC
+original_study_estimated_effect_size <- 0.5
+
+esMinFutility <- 0.7*original_study_estimated_effect_size
+deltaMin <- 0.7*original_study_estimated_effect_size 
+alpha <- 0.1
+betaFutility <- 0.1
+
+# permute the rows of ECDF to avoid only sampling one group
+PECDF <- extendedCleanDataFilter[sample(nrow(extendedCleanDataFilter)), ]
+sequential_results_list <- full_seq_t_test_analysis(PECDF, alpha, betaFutility, deltaMin, esMinFutility, varEqual = varEqual)
+#view(sequential_results_list$sequential_results)
+eValueMat <- sequential_results_list$eValueMat
+fValueMat <- sequential_results_list$fValueMat
+metaEType1 <- sequential_results_list$metaEType1
+metaFType1 <- sequential_results_list$metaFType1
+metaEType2 <- sequential_results_list$metaEType2
+metaFType2 <- sequential_results_list$metaFType2
+metaEType3 <- sequential_results_list$metaEType3
+metaFType3 <- sequential_results_list$metaFType3
+
+#print(log(metaEType3))
+#plot(log(metaEType2), type = 'line')
+
+all_results <- list(
+  extendedCleanDataFilter = extendedCleanDataFilter,
+  frequentist_results = frequentist_results,
+  sequential_results_list = sequential_results_list
 )
-# the global analysis at index 0
-res <- t.test(variable1 ~ variable2, data = extendedCleanDataFilter, var.equal = FALSE)
-results$study.order[0] <- 0
-results$mean_group1[0] <- res$estimate[1]
-results$mean_group2[0] <- res$estimate[2]
-results$p.value[0] <- res$p.value 
 
-for (i in seq_len(n_studies)){
-  res <- t.test(variable1 ~ variable2, data = extendedCleanDataFilter[extendedCleanDataFilter$study.order == i,], var.equal = FALSE)
-  results$study.order[i] <- i
-  results$mean_group1[i] <- res$estimate[1]
-  results$mean_group2[i] <- res$estimate[2]
-  results$p.value[i] <- res$p.value 
-}
-#view(results)
+# THIS IS STUDY-SPECIFFIC
+#saveRDS(all_results, file = file.path("~", "projects", "manyLabsE","02_tTest","Ross2Data.rds"))
