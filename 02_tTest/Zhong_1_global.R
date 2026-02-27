@@ -176,17 +176,15 @@ head(zhongData)
 # ASDF---------
 
 # remotes::install_github("AlexanderLyNL/safestats", ref = “futility88")
+#
+# library(safestats)
 
-library(safestats)
-
-eValueColour <- "#A6CEE380"
-eValueColourBorder <- "#1F78B4E6"
-
-underColour <- adjustcolor("darkolivegreen", alpha.f=0.3)
-underColourBorder <- adjustcolor("darkolivegreen", alpha.f=0.8)
-overColour <- adjustcolor("#DAA52066", alpha.f=0.8)
-overColourBorder <- "#DAA52066"
-
+overColour <- "#A6CEE380"
+overColourBorder <- "#1F78B4E6"
+underColour <- "#FFB90F86"
+underColourBorder <- "#FFB90FCC"
+continueColour <- "#556B2F4D"
+continueColourBorder <- "#556B2FCC"
 
 # library("safestats")
 pdfWidth <- 14
@@ -212,8 +210,9 @@ freqDesign <- power.t.test(delta=deltaMin, alternative="two.sided",
 #                           alternative="greater", seed=1)
 
 designObj2 <- designSaviT(deltaMin=deltaMin, beta=0.2,
-                             testType="twoSample",
-                             alternative="twoSided", seed=5)
+                          testType="twoSample",
+                          alternative="twoSided", seed=5,
+                          futility=TRUE)
 
 
 
@@ -293,7 +292,8 @@ for (i in 1:length(allSources)) {
   n2Freq <- min(ceiling(freqDesign$n), length(y))
   n2VecFreq[i] <- n2Freq
 
-  tempResult <- t.test(x[1:n1Freq], y[1:n2Freq], var.equal=TRUE)
+  tempResult <- t.test(x[1:n1Freq], y[1:n2Freq],
+                       var.equal=TRUE)
   pValues[i] <- tempResult$p.value
 
   ## e-value ----
@@ -305,11 +305,10 @@ for (i in 1:length(allSources)) {
 
   ratios[i] <- n2EValue/n1EValue
 
-  tempResult <- saviTTestFut(
+  tempResult <- saviTTest(
     x[1:n1EValue],
     y[1:n2EValue],
-    designObj=designObj2, sequential=TRUE,
-    futility=TRUE, esMinFutility=0.68*deltaMin)
+    designObj=designObj2, sequential=TRUE)
 
   eValues[i] <- max(tempResult$eValueVec, na.rm=TRUE)
 
@@ -321,182 +320,160 @@ for (i in 1:length(allSources)) {
     tempResult$eValueVec <- c(tempResult$eValueVec, rep(tempResult$eValueVec[nLast], nRemaining))
 
 
-    tempResult$eValueVecFut <- c(unlist(tempResult$eValueVecFut), rep(unlist(tempResult$eValueVecFut)[nLast], nRemaining))
+    tempResult$eValueFutVec <- c(unlist(tempResult$eValueFutVec), rep(unlist(tempResult$eValueFutVec)[nLast], nRemaining))
   }
 
   allEValueVecs[, i] <- tempResult$eValueVec
-  allEValueVecsFut[, i] <- tempResult$eValueVecFut
+  allEValueVecsFut[, i] <- tempResult$eValueFutVec
 
   firstTimes[i] <- min(which(tempResult$eValueVec >= 20))
-  firstTimesFut[i] <- min(which(tempResult$eValueVecFut <= betaFutility))
+  firstTimesFut[i] <- min(which(tempResult$eValueFutVec <= betaFutility))
 }
 # loop end ----
 
-mean(is.finite(firstTimesFut))
-
-allSources
-
-designObj2$nPlan
 
 firstTimes
 firstTimesFut
 
-# Futilty HERE new -------
+# Scenario 1 ----
+# In the order of how the sources are mentioned, but can use randomisation
+#   Also only up to n1=n1End and n2 = ratio*n1,
+#   where ratio n2End/n1End, for instance when n1End > 47.
+#   When n1End < 47, then the eValue is copied until n1=47
+#   For instance:
+#
+#   print(allEValueVecs[, 3])
+#
+n1End <- dim(allEValueVecs)[1]
 
-firstTimes
-firstTimesFut
+eMeta <- exp(cumsum(log(allEValueVecs[n1End, ])))
+eFutMeta <- exp(cumsum(log(allEValueVecsFut[n1End, ])))
 
+plot(eMeta, type="l", log="y")
+lines(eFutMeta, col="red")
 
+eMetaAverage <- cumsum(allEValueVecs[n1End, ])/(1:length(allSources))
+eFutMetaAverage <- cumsum(allEValueVecsFut[n1End, ])/(1:length(allSources))
 
-plot(1:57, exp(cumsum(log(allEValueVecsFut[33, ]))), type="l", log="y")
-plot(1:57, exp(cumsum(log(allEValueVecs[33, ]))), type="l", log="y")
+plot(eMetaAverage, type="l", log="y")
+lines(eFutMetaAverage, col="red")
 
+which(eMeta > 20)
+which(eMetaAverage>20)
 
+# Scenario 2 ----
+eMeta <- exp(rowSums(log(allEValueVecs)))
+eFutMeta <- exp(rowSums(log(allEValueVecsFut)))
 
-# Freq result ----
-sum(pValues < 0.05)
-mean(pValues < 0.05)
+plot(eMeta, type="l", log="y")
+lines(eFutMeta, col="red")
 
-# Number of samples used in the frequentist analysis
-sum(n1VecFreq)
-sum(n2VecFreq)
+which(eMeta >= 20)
 
-# Percentage saved by frequentist analysis
-(sum(n1Vec)-sum(n1VecFreq))/sum(n1Vec)
-(sum(n2Vec)-sum(n2VecFreq))/sum(n2Vec)
+eMetaAverage <- rowMeans(allEValueVecs)
+eFutMetaAverage <- rowMeans(allEValueVecsFut)
 
+plot(eMetaAverage, type="l", log="y")
+lines(eFutMetaAverage, col="red")
 
-# e-value result ----
-sum(eValues > 20)
-mean(eValues > 20)
+which(eMetaAverage > 20)
 
+# Scenario 3 ---------
+checkXY <- function(x, y) {
+  if (length(x) >= 1 && length(y) >= 1)
+    return(TRUE)
 
-# Analysis of stopping time -----
-n1Fpt <- firstTimes
-n2Fpt <- ceil(firstTimes*ratios)
+  if (is.null(x))
+    return(FALSE)
 
-notStoppedIndex <- which(is.infinite(firstTimes))
-n1Fpt[notStoppedIndex] <- n1VecE[notStoppedIndex]
-n2Fpt[notStoppedIndex] <- n2VecE[notStoppedIndex]
+  if (is.null(y))
+    return(FALSE)
 
-# Average sample size used by e-value analysis
-mean(n1Fpt)
-mean(n2Fpt)
+  if (is.na(x))
+    return(FALSE)
 
-# Percentage saved by e-value analysis
-(sum(n1Vec)-sum(n1Fpt))/sum(n1Vec)
-(sum(n2Vec)-sum(n2Fpt))/sum(n2Vec)
+  if (is.na(y))
+    return(FALSE)
 
-
-# Plot-----
-stoppedTimes <- firstTimes
-stoppedTimes[is.infinite(firstTimes)] <- n1VecE[is.infinite(firstTimes)]
-
-fptHist <- hist(stoppedTimes, plot=FALSE,
-                breaks=1:designObj2$nPlan[1])
-
-y <- fptHist[["density"]]
-nB <- length(fptHist$breaks)
-yRange <- range(y, 0)
-
-alpha <- 0.05
-ylim <- c(-1*log(20/(2*alpha)), 2.75*log(1/alpha))
-
-someConstant <- (ylim[2]+log(alpha))/yRange[2]
-textHeightQuant <- (ylim[2]+log(alpha))+log(1/alpha)
-
-xlim <- c(0, designObj2$nPlan[1])
-
-
-notStoppedTable <- table(stoppedTimes[which(is.infinite(firstTimes))])
-
-
-notStoppedN <- as.integer(names(notStoppedTable))
-notStoppedBottom <- rep(0, length(notStoppedN))
-notStoppedTop <- notStoppedTable/57
-
-overIndexes <- which(is.finite(firstTimes))
-underIndexes <- which(is.infinite(firstTimes))
-
-
-myName <- "zhongExample"
-pdf(paste0(myName, ".pdf"), width=pdfWidth, height=pdfHeight)
-
-graphics::par(cex.main=1.5, mar=c(6, 6, 4, 0)+0.1, mgp=c(3.5, 1, 0), cex.lab=1.5,
-              font.lab=2, cex.axis=1.3, bty="n", las=1)
-
-plot(NULL, xlim = xlim, ylim = ylim, xlab = "", ylab = "",
-     cex.lab = 1.3, cex.axis = 1.3, las = 1, main=NULL,
-     xaxt = "n", yaxt = "n", bty = "n", type = "p", pch = 15,
-     bg = "grey")
-
-
-abline(h = log(1), col = "darkgrey", lwd = 2, lty = 2)
-abline(h = log(1/alpha))
-
-criticalP <- log(c(alpha/10, alpha, 1, 1/alpha))
-
-axis(side = 2, at = c(criticalP), tick = TRUE, las = 2, cex.axis = 1.3,
-     labels = c(alpha/10, alpha, "1", 1/alpha), cex.axis=myCexAxis)
-# axis(side = 1)
-axis(side = 1, at=c(0, 10*(1:3)), cex.axis=myCexAxis)
-
-ylab <- "Evidence"
-
-mtext(ylab, side = 2, line = 2.5, las = 0, cex = cexFactor*myCex,
-      adj=0.5, padj=-0.5)
-
-xlab <- "Sample size"
-
-mtext(xlab, side = 1, line = 2.5, las = 1,
-      cex = cexFactor*myCex, padj=0.5)
-
-
-rect(fptHist$breaks[-nB]+0.5, log(1/alpha),
-     fptHist$breaks[-1L]+0.5, someConstant*y+log(1/alpha),
-     col = eValueColour, border = eValueColourBorder, lwd=2,
-     angle = 45, density = NULL, lty = NULL)
-
-for (i in seq_along(notStoppedN)) {
-  tempN <- notStoppedN[i]
-
-  rect(xleft=tempN-0.5, ybottom=someConstant*notStoppedBottom[i]+log(1/alpha),
-       xright=tempN+0.5, ytop=someConstant*notStoppedTop[i]+log(1/alpha),
-       col = underColour, lwd=2, border=underColourBorder,
-       angle = 45, density = NULL, lty = NULL)
-
+  return(TRUE)
 }
 
-for (j in underIndexes) {
-  n1Temp <- stoppedTimes[j]
 
-  lines(1:n1Temp, log(allEValueVecs[1:n1Temp, j]),
-        lwd=2, col=underColour)
+
+
+nTotal <- length(unique(dat$uID))
+
+
+set.seed(1)
+someOrder <- sample(unique(dat$uID), nTotal)
+
+sourceDataTracker <- vector(mode="list", length=length(allSources))
+names(sourceDataTracker) <- allSources
+
+for (neem in allSources)
+  sourceDataTracker[[neem]] <- list(x=NULL, y=NULL)
+
+eFutCollection <- eCollection <- as.data.frame(matrix(ncol=length(allSources), nrow=nTotal))
+names(eFutCollection) <- names(eCollection) <- allSources
+eFutCollection[1, ] <- eCollection[1, ] <- 1
+
+
+for (i in seq_along(someOrder)) {
+  # for (i in 1:1000) {
+  someId <- someOrder[i]
+
+  someRow <- dat[which(dat$uID==someId), ]
+
+  someSource <- someRow$source
+
+  sourceDataTemp <- sourceDataTracker[[someSource]]
+
+  x <- sourceDataTemp$x
+  y <- sourceDataTemp$y
+
+  if (someRow$factor=="Ethical") {
+    sourceDataTracker[[someSource]]$x <- x <- c(x, someRow$variable)
+  } else if (someRow$factor=="Unethical") {
+    sourceDataTracker[[someSource]]$y <- y <- c(y, someRow$variable)
+  }
+
+  if (i >1) {
+    someCheck <- checkXY(x, y)
+
+    if (someCheck) {
+      tempRes <- saviTTest(x, y, designObj=designObj2, sequential=FALSE)
+
+      eCollection[[someSource]][i] <- tempRes$eValue
+      eFutCollection[[someSource]][i] <- tempRes$eValueFut
+    } else {
+      eCollection[[someSource]][i] <- 1
+      eFutCollection[[someSource]][i] <- 1
+    }
+
+    for (source in allSources) {
+      if (source!=someSource) {
+        eCollection[[source]][i] <- eCollection[[source]][i-1]
+        eFutCollection[[source]][i] <- eFutCollection[[source]][i-1]
+      }
+    }
+  }
 }
-# j <- 26
 
-for (j in underIndexes) {
-  n1Temp <- stoppedTimes[j]
+eMatrix <- as.matrix(eCollection)
+eFutMatrix <- as.matrix(eFutCollection)
 
-  points(n1Temp,
-         log(allEValueVecs[n1Temp, j]),
-         pch=15, col=underColourBorder)
-}
+eMeta <- exp(rowSums(log(eMatrix)))
+eFutMeta <- exp(rowSums(log(eFutMatrix)))
 
-for (i in overIndexes) {
-  n1Temp <- stoppedTimes[i]
+plot(1:nTotal, eMeta, type="l", log="y")
+lines(1:nTotal, eFutMeta, col="red")
 
-  lines(1:n1Temp, c(log(allEValueVecs[1:(n1Temp-1), i]), log(1/alpha)),
-        lwd=5, col=overColourBorder)
+which(eMeta > 20)
 
-  points(n1Temp,
-         log(1/alpha),
-         pch=15, col=overColourBorder)
-}
+eMetaAverage <- rowMeans(eMatrix)
+eFutMetaAverage <- rowMeans(eFutMatrix)
 
-mtext("e-value analyses of ManyLabs2 replications of Zhong & Liljenquist, 2006, study 2",
-      side = 3, line = 2.5, las = 1, cex = 2, adj=-0.3)
+plot(1:nTotal, eMetaAverage, type="l", log="y")
+lines(1:nTotal, eFutMetaAverage, col="red")
 
-dev.off()
-
-
+which(eMetaAverage > 20)
