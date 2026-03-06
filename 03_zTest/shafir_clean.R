@@ -42,8 +42,8 @@ Nmin.cond              <- 15
 subset                 <- 'all'
 onlineTables           <- TRUE
 staticData             <- TRUE
-saveAll                <- TRUE
-overWrite              <- TRUE
+saveAll                <- FALSE
+overWrite              <- FALSE
 #OSFdata.root           <- file.path('~','OSFdata')
 analysis.root          <- file.path(OSFdata.root,study.description,analysis.name,'Global')
 outdir                 <- list(Data = file.path(analysis.root,'Data'), Results = file.path(analysis.root,'Results'))
@@ -73,6 +73,9 @@ if(onlineTables){
   # Get info about the sites
   SourceInfoTable    <- rio::import(file.path(OSFdata.root,"!!KeyTables","ML2_SourceInfoTable.csv"))
 }
+
+
+
 
 # GET DATA ----
 
@@ -197,6 +200,8 @@ if(length(toRun$studiess)>0){
 
         # To see the function code type:varfun.Shafir.1, or lookup in manylabRs_SOURCE.R
         ML2.var[[g]] <- varfun.Shafir.1(ML2.sr[[g]])
+
+
 
 
         # Check equal variance assumption
@@ -448,319 +453,281 @@ if(length(toRun$studiess)>0){
 dat <- addUniqueIds(ML2.var, ML2.df)
 dat <- checkUniqueIds(dat)
 
+
 # Here -------
-
-
-xName <- "High"
-yName <- "Low"
-alpha <- 0.05
+alpha <- 0.5
 betaFutility <- 0.2
-deltaMin <- 0.68
+
+count <- as.integer(dat$variable1=="Parent B")
+dat$count <- count
+
+datAward <- dat[dat$variable2=="Award", ]
+datDeny <- dat[dat$variable2=="Deny", ]
+
+meansAward <- datAward %>% group_by(source) %>%
+  summarise(mean=mean(count, na.rm=TRUE))
+
+meansDeny <- datDeny %>% group_by(source) %>%
+  summarise(mean=mean(count, na.rm=TRUE))
 
 
-dat$variable1_binary <- as.numeric(dat$variable1 == "Parent B")
-head(dat)
+allMeans <- (meansAward$mean+meansDeny$mean)/2
 
-(1-pnorm(2.48))*2 # Original p-value
-(1-pnorm(6.1))*2 # Replicated p-value
+kip <- data.frame(source=meansAward$source, means=allMeans)
 
-(1-pnorm(abs((((0.476+0.455)/2)-0.5)/sqrt(0.25/7901))))*2 # Replicated p-value
-stat.test
-z.test(x = shafirData$ParentB, pi = .5, N = 7901, proportion = TRUE)# sigma = 0.25
-
-
-
-
-for (g in unique(shafirData$cleanDataFilter$source)){
-  print(sum(dat$variable1_binary[dat$source==g])/sum(dat$source==g))
-}
-
-library(dplyr)
-library(ggplot2)
-
-study_summary <- dat %>%
+studySummary <- dat %>%
   group_by(source) %>%
   summarise(
     n = n(),
-    mean = mean(variable1_binary, na.rm = TRUE),
+    mean = mean(count, na.rm = TRUE),
     se = sqrt(mean * (1 - mean) / n),   # binomial SE
     lower = mean - 1.96 * se,
     upper = mean + 1.96 * se
   )
-ggplot(study_summary,
-       aes(x = reorder(source, mean), y = mean)) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(ymin = lower, ymax = upper),
-                width = 0.2, alpha = 0.6) +
-  geom_hline(yintercept = 0.5,
-             linetype = "dashed", color = "red") +
-  coord_flip() +
-  labs(
-    x = "Study",
-    y = "Proportion (Mean of Binary Variable)",
-    title = "Study-Level Proportions with 95% Confidence Intervals"
-  ) +
-  theme_minimal()
+
+studySummary$mean <- allMeans
+maxN <- max(studySummary$n)
+
+#
+# stat.params <<- ML2.in$stat.params
+# stat.test   <- try.CATCH(with(ML2.var[[g]],
+#                               z.test(x = ParentB, pi = .5,
+#                                      N = sum(N, na.rm=TRUE),
+#                                      proportion = TRUE,
+#                                      alternative = stat.params$alternative)))
+#
+#
+# for (g in unique(dat$source)){
+#   print(sum(dat$count[dat$source==g])/sum(dat$source==g))
+# }
+#
+# library(dplyr)
+# library(ggplot2)
+#
+# study_summary <- dat %>%
+#   group_by(source) %>%
+#   summarise(
+#     n = n(),
+#     mean = mean(variable1_binary, na.rm = TRUE),
+#     se = sqrt(mean * (1 - mean) / n),   # binomial SE
+#     lower = mean - 1.96 * se,
+#     upper = mean + 1.96 * se
+#   )
+# ggplot(study_summary,
+#        aes(x = reorder(source, mean), y = mean)) +
+#   geom_point(size = 2) +
+#   geom_errorbar(aes(ymin = lower, ymax = upper),
+#                 width = 0.2, alpha = 0.6) +
+#   geom_hline(yintercept = 0.5,
+#              linetype = "dashed", color = "red") +
+#   coord_flip() +
+#   labs(
+#     x = "Study",
+#     y = "Proportion (Mean of Binary Variable)",
+#     title = "Study-Level Proportions with 95% Confidence Intervals"
+#   ) +
+#   theme_minimal()
+#
+#
+# library(meta)
+#
+# m <- metagen(
+#
+#   TE = study_summary$mean,
+#
+#   seTE = study_summary$se,
+#
+#   studlab = study_summary$source
+#
+# )
+#
+# forest(m) # forest plot
+#
+# funnel(m) # funnel plot
+#
+#
 
 
-library(meta)
-
-m <- metagen(
-
-  TE = study_summary$mean,
-
-  seTE = study_summary$se,
-
-  studlab = study_summary$source
-
-)
-
-forest(m) # forest plot
-
-funnel(m) # funnel plot
 
 
 
 
-
-betaFutility <- 0.2
-
+# 2*asin(sqrt((.64+.55)/2))-2*asin(sqrt(.5))
 
 # Original study: Lower bound of effect size found in the original study
 
+binomDiff <- ((.64+.55)/2-0.5)
 
-deltaMin <- ((.64+.55)/2-0.5)* 0.7 #((.64+.55)/2-0.5)/sqrt(0.25/170)*0.68
-
-# Prospective frequentist analysis
-freqDesign <- power.t.test(delta=deltaMin, sd = 0.5, alternative="two.sided",
-                           power=0.8)
-((.64+.55)/2-0.5)/sqrt(0.25/170)
-# Prospective e-value analysis
-
-designObj2 <- designSaviZ(meanDiffMin=deltaMin, beta=0.2,
-                          testType="oneSample", sigma = 0.5,
-                          alternative="twoSided", seed=5,
-                          futility = TRUE)
-plot(designObj2)
+deltaMin <- sqrt(4*binomDiff^2/(1-binomDiff^2))
 
 
+designObj <- designSaviZ(meanDiffMin=deltaMin, beta=0.2,
+                         testType="oneSample", sigma = 0.5,
+                         alternative="greater", seed=5,
+                         futility = TRUE)
 
-dat$variable1_binary_norm = dat$variable1_binary-0.5
-e_test = saviZTest(dat$variable1_binary_norm ,designObj = designObj2, futility=TRUE)
-e_test$eValue
-e_test$eValueFut
+# designObj <- designSaviZ(meanDiffMin=deltaMin, beta=0.2,
+#                          testType="oneSample", sigma = 0.5,
+#                          alternative="twoSided", seed=5,
+#                          futility = TRUE)
 
-e_test_out <- saviZTest(dat$variable1_binary_norm[dat$source!='jos'] ,designObj = designObj2)
-e_test_out$eValue
+seVec <- sqrt(0.5*(1-0.5)/studySummary$n)
 
-
-library(dplyr)
-library(purrr)
-library(ggplot2)
-
-study_results <- dat %>%
-  group_by(source) %>%
-  summarise(
-    n = n(),
-    mean = mean(variable1_binary_norm, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  mutate(
-    # classical z test against 0
-    z = mean / sqrt(0.25 / n),
-    p_value = 2 * (1 - pnorm(abs(z))),
-
-    # e-values from saviZTest
-    e_obj = map(source, ~ saviZTest(
-      dat$variable1_binary_norm[dat$source == .x],
-      design = designObj2,
-      futility = TRUE
-    )),
-    e_value = map_dbl(e_obj, "eValue"),
-    e_value_fut = map_dbl(e_obj, "eValueFut")
-  )
+# seVec <- sqrt(studySummary$mean*(1-studySummary$mean)/studySummary$n)
+zStat <- (studySummary$mean-0.5)/seVec
 
 
-total_e      <- prod(study_results$e_value)
-total_e_fut  <- prod(study_results$e_value_fut)
+eValueFutVec <- eValueVec <- zStat
 
-prop_sig     <- mean(study_results$p_value < 0.05)
+for (i in seq_along(eValueVec)) {
+  tempRes <- saviZTestStat(z=zStat[i], n1=studySummary$n[i],
+                           parameter=designObj$parameter,
+                           alternative=designObj$alternative,
+                           sigma=designObj$sigma,
+                           eType=designObj$eType)
+  eValueVec[i] <- tempRes$eValue
 
-total_e > 20
-total_e_fut < betaFutility
-prop_sig
+  tempRes <- saviFutilityZStat(z=zStat[i], n1=studySummary$n[i],
+                               parameter=designObj$futilityResult$parameter,
+                               alternative=designObj$alternative,
+                               sigma=designObj$sigma)
 
-
-# DISTRIBUTION OF THE EFFECT
-ggplot(study_results, aes(x = mean)) +
-  geom_histogram(bins = 30) +
-  geom_vline(xintercept = 0, linetype = "dashed") +
-  labs(title = "Distribution of Study-Level Effects",
-       x = "Mean Effect",
-       y = "Count") +
-  theme_minimal()
-
-# E-values
-
-ggplot(study_results,
-       aes(x = reorder(source, e_value), y = e_value)) +
-  geom_point() +
-  geom_hline(yintercept = 20, linetype = "dashed") +
-  scale_y_log10() +
-  coord_flip() +
-  labs(title = "E-values per Study",
-       x = "Study",
-       y = "E-value (log scale)") +
-  theme_minimal()
-
-study_results <- study_results %>%
-  arrange(desc(e_value)) %>%
-  mutate(cum_e = cumprod(e_value))
-
-# CUMULATIVE
-
-ggplot(study_results,
-       aes(x = seq_along(cum_e), y = cum_e)) +
-  geom_line() +
-  geom_hline(yintercept = 20, linetype = "dashed") +
-  scale_y_log10() +
-  labs(title = "Cumulative Product of E-values",
-       x = "Number of Studies Included",
-       y = "Cumulative E-value (log scale)") +
-  theme_minimal()
+  eValueFutVec[i] <- tempRes$eValue
+}
 
 
-# FIRST TIME ANALYSIS
+eValueVec > 20
+eValueFutVec < 0.2
+
+# Scenario 1 ----
+#
+eMeta <- exp(cumsum(log(eValueVec)))
+eFutMeta <- exp(cumsum(log(eValueFutVec)))
+
+plot(eMeta, type="l", log="y")
+lines(eFutMeta, col="red")
+
+eMetaAverage <- cumsum(eValueVec)/(1:length(eValueVec))
+eFutMetaAverage <- cumsum(eValueFutVec)/(1:length(eValueFutVec))
+
+plot(eMetaAverage, type="l", log="y")
+lines(eFutMetaAverage, col="red")
+
+which(eMeta > 1/alpha)
+which(eMetaAverage > 1/alpha)
+
+which(eFutMeta < betaFutility)
+which(eFutMetaAverage < betaFutility)
+
+# Scenario 2 ----
+# Result containers
+#   General data set attributes
+
+allSources <- unique(dat$source)
+numeric(length(allSources))
+
+nVec  <- firstTimes <- eValues <- numeric(length(allSources))
+nFutVec <- firstTimesFut <- eValuesFut <- numeric(length(allSources))
 
 
-sources <- unique(dat$source)
-first_reject <- sapply(sources, function(g) {
-  ev <- saviZTest(dat$variable1_binary_norm[dat$source == g], design = designObj2,
-                  futility = TRUE)$eValueVec
+allEValueVecs <- matrix(nrow=maxN,
+                        ncol=length(allSources))
 
-  idx <- which(ev > 20)
-
-  if (length(idx) == 0) NA else min(idx)
-})
-
-results <- data.frame(
-  source = sources,
-  first_reject = first_reject,
-  rejected = !is.na(first_reject)
-)
-mean(results$rejected)
+allEValueFutVecs <- allEValueVecs
 
 
-first_reject_fut <- sapply(sources, function(g) {
-  ev <- saviZTest(dat$variable1_binary_norm[dat$source == g], design = designObj2,
-                  futility = TRUE)$eValueFutVec
+# Analyse data for each source
+# loop start -----
+for (i in 1:length(allSources)) {
+  someDat <- dat[dat$source==allSources[i], ]
 
-  idx <- which(ev < betaFutility)
+  nTemp <- dim(someDat)[1]
 
-  if (length(idx) == 0) NA else min(idx)
-})
+  someOrder <- sample(someDat$uID, size=nTemp)
 
-results_fut <- data.frame(
-  source = sources,
-  first_reject = first_reject_fut,
-  rejected = !is.na(first_reject_fut)
-)
-mean(results_fut$rejected)
+  nAward <- 0
+  nDeny <- 0
 
+  xAward <- 0
+  xDeny <- 0
 
-library(ggplot2)
+  for (j in seq_along(someOrder)) {
+    idN <- someOrder[j]
 
-ggplot(results[results$rejected,],
-       aes(x = first_reject)) +
-  geom_histogram(bins = 30) +
-  labs(title = "Distribution of First Rejection Time",
-       x = "Time of First e-value > 20",
-       y = "Number of Sources") +
-  theme_minimal()
+    someRow <- someDat[someDat$uID==idN, ]
 
+    if (someRow$variable2=="Award") {
+      nAward <- nAward+1
+      xAward <- someRow$count+0
+    } else if (someRow$variable2=="Deny") {
+      nDeny <- nDeny+1
+      xDeny <- someRow$count+0
+    }
 
+    if (xAward==0 || xDeny==0) {
+      allEValueVecs[j, i] <- 1
+      allEValueFutVecs[j, i] <- 1
+    } else {
+      meanAward <- xAward/nAward
+      meanDeny <- xDeny/nDeny
 
-threshold <- 20
-sources <- unique(dat$source)
+      obsMeanDiff <- (meanAward+meanDeny)/2-0.5
 
-results <- lapply(sources, function(g) {
+      nNow <- nAward+nDeny
 
-  x <- dat$variable1_binary_norm[dat$source == g]
-  ev <- saviZTest(x, futility = TRUE, design = designObj2)$eValueVec
+      seNow <- sqrt(0.5*(1-0.5)/nNow)
+      zNow <- obsMeanDiff/seNow
 
-  idx <- which(ev > threshold)
+      tempRes <- saviZTestStat(z=zNow, n1=nNow,
+                               parameter=designObj$parameter,
+                               alternative=designObj$alternative,
+                               sigma=designObj$sigma,
+                               eType=designObj$eType)
 
-  if (length(idx) == 0) {
-    time <- length(ev)
-    status <- 0
-  } else {
-    time <- min(idx)
-    status <- 1
+      allEValueVecs[j, i] <- tempRes$eValue
+
+      tempRes <- saviFutilityZStat(z=zNow, n1=nNow,
+                                   parameter=designObj$futilityResult$parameter,
+                                   alternative=designObj$alternative,
+                                   sigma=designObj$sigma)
+
+      allEValueFutVecs[j, i] <- tempRes$eValue
+    }
   }
 
-  data.frame(
-    source = g,
-    time = time,
-    status = status,
-    n = length(x),
-    mean = mean(x, na.rm = TRUE)
-  )
-})
+  nRemaining <- maxN - nTemp
 
-results <- do.call(rbind, results)
+  if (nRemaining > 0) {
+    allEValueVecs[(nTemp+1):maxN, i] <- allEValueVecs[nTemp, i]
+    allEValueFutVecs[(nTemp+1):maxN, i] <- allEValueFutVecs[nTemp, i]
+  }
 
-# OUTLIER
-
-study_results$e_value[1] <- 1
-study_results$e_value_fut[1] <- 1
-total_e      <- prod(study_results$e_value)
-total_e_fut  <- prod(study_results$e_value_fut)
-
-prop_sig     <- mean(study_results$p_value < 0.05)
-
-total_e > 20
-total_e_fut < betaFutility
-prop_sig
+  firstTimes[i] <- min(which(allEValueVecs[, i] >= 1/alpha))
+  firstTimesFut[i] <- min(which(allEValueFutVecs[, i] <= betaFutility))
+}
+# loop end ----
 
 
-# DISTRIBUTION OF THE EFFECT
-ggplot(study_results, aes(x = mean)) +
-  geom_histogram(bins = 30) +
-  geom_vline(xintercept = 0, linetype = "dashed") +
-  labs(title = "Distribution of Study-Level Effects",
-       x = "Mean Effect",
-       y = "Count") +
-  theme_minimal()
-
-# E-values
-
-ggplot(study_results,
-       aes(x = reorder(source, e_value), y = e_value)) +
-  geom_point() +
-  geom_hline(yintercept = 20, linetype = "dashed") +
-  scale_y_log10() +
-  coord_flip() +
-  labs(title = "E-values per Study",
-       x = "Study",
-       y = "E-value (log scale)") +
-  theme_minimal()
-
-study_results <- study_results %>%
-  arrange(desc(e_value)) %>%
-  mutate(cum_e = cumprod(e_value))
-
-# CUMULATIVE
-
-ggplot(study_results,
-       aes(x = seq_along(cum_e), y = cum_e)) +
-  geom_line() +
-  geom_hline(yintercept = 20, linetype = "dashed") +
-  scale_y_log10() +
-  labs(title = "Cumulative Product of E-values",
-       x = "Number of Studies Included",
-       y = "Cumulative E-value (log scale)") +
-  theme_minimal()
+firstTimes
+firstTimesFut
 
 
 
-dat[dat$source=="jos", ]
+
+eMeta <- exp(rowSums(log(allEValueVecs)))
+eFutMeta <- exp(rowSums(log(allEValueFutVecs)))
+
+plot(eMeta, type="l", log="y")
+lines(eFutMeta, col="red")
+
+eMetaAverage <- rowMeans(allEValueVecs)
+eFutMetaAverage <- rowMeans(allEValueFutVecs)
+
+plot(eMetaAverage, type="l", log="y")
+lines(eFutMetaAverage, col="red")
+
+which(eMeta >= 1/alpha)
+which(eMetaAverage > 1/alpha)
+
+which(eFutMeta < betaFutility)
+which(eFutMetaAverage < betaFutility)
