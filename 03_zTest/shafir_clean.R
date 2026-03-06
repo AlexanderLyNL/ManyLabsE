@@ -643,6 +643,7 @@ for (i in 1:length(allSources)) {
 
   nTemp <- dim(someDat)[1]
 
+  set.seed(i)
   someOrder <- sample(someDat$uID, size=nTemp)
 
   nAward <- 0
@@ -664,7 +665,7 @@ for (i in 1:length(allSources)) {
       xDeny <- someRow$count+0
     }
 
-    if (xAward==0 || xDeny==0) {
+    if (nAward <= 2 || nDeny <= 2) {
       allEValueVecs[j, i] <- 1
       allEValueFutVecs[j, i] <- 1
     } else {
@@ -706,13 +707,8 @@ for (i in 1:length(allSources)) {
   firstTimesFut[i] <- min(which(allEValueFutVecs[, i] <= betaFutility))
 }
 # loop end ----
-
-
 firstTimes
 firstTimesFut
-
-
-
 
 eMeta <- exp(rowSums(log(allEValueVecs)))
 eFutMeta <- exp(rowSums(log(allEValueFutVecs)))
