@@ -455,7 +455,7 @@ dat <- checkUniqueIds(dat)
 
 
 # Here -------
-alpha <- 0.5
+alpha <- 0.05
 betaFutility <- 0.2
 
 count <- as.integer(dat$variable1=="Parent B")
@@ -472,8 +472,6 @@ meansDeny <- datDeny %>% group_by(source) %>%
 
 
 allMeans <- (meansAward$mean+meansDeny$mean)/2
-
-kip <- data.frame(source=meansAward$source, means=allMeans)
 
 studySummary <- dat %>%
   group_by(source) %>%
@@ -560,11 +558,11 @@ binomDiff <- ((.64+.55)/2-0.5)
 
 deltaMin <- sqrt(4*binomDiff^2/(1-binomDiff^2))
 
-
-designObj <- designSaviZ(meanDiffMin=deltaMin, beta=0.2,
-                         testType="oneSample", sigma = 0.5,
-                         alternative="greater", seed=5,
-                         futility = TRUE)
+designObj <- designSaviZ(
+  meanDiffMin=binomDiff, beta=0.2,
+  testType="oneSample", sigma = 0.5,
+  alternative="greater", seed=5,
+  futility = TRUE)
 
 # designObj <- designSaviZ(meanDiffMin=deltaMin, beta=0.2,
 #                          testType="oneSample", sigma = 0.5,
@@ -576,33 +574,41 @@ seVec <- sqrt(0.5*(1-0.5)/studySummary$n)
 # seVec <- sqrt(studySummary$mean*(1-studySummary$mean)/studySummary$n)
 zStat <- (studySummary$mean-0.5)/seVec
 
+z.test
 
 eValueFutVec <- eValueVec <- zStat
 
 for (i in seq_along(eValueVec)) {
-  tempRes <- saviZTestStat(z=zStat[i], n1=studySummary$n[i],
-                           parameter=designObj$parameter,
-                           alternative=designObj$alternative,
-                           sigma=designObj$sigma,
-                           eType=designObj$eType)
+  tempRes <- saviZTestStat(
+    z=zStat[i], n1=studySummary$n[i],
+    parameter=designObj$parameter,
+    alternative=designObj$alternative,
+    sigma=designObj$sigma,
+    eType=designObj$eType)
+
   eValueVec[i] <- tempRes$eValue
 
-  tempRes <- saviFutilityZStat(z=zStat[i], n1=studySummary$n[i],
-                               parameter=designObj$futilityResult$parameter,
-                               alternative=designObj$alternative,
-                               sigma=designObj$sigma)
+  tempRes <- saviFutilityZStat(
+    z=zStat[i], n1=studySummary$n[i],
+    parameter=designObj$futilityResult$parameter,
+    alternative=designObj$alternative,
+    sigma=designObj$sigma)
 
   eValueFutVec[i] <- tempRes$eValue
 }
 
 
-eValueVec > 20
-eValueFutVec < 0.2
+eValueVec > 1/alpha
+eValueFutVec < betaFutility
 
 # Scenario 1 ----
 #
 eMeta <- exp(cumsum(log(eValueVec)))
 eFutMeta <- exp(cumsum(log(eValueFutVec)))
+
+designObj$parameter
+designObj$futilityResult$parameter
+binomDiff
 
 plot(eMeta, type="l", log="y")
 lines(eFutMeta, col="red")
@@ -659,10 +665,10 @@ for (i in 1:length(allSources)) {
 
     if (someRow$variable2=="Award") {
       nAward <- nAward+1
-      xAward <- someRow$count+0
+      xAward <- someRow$count+xAward
     } else if (someRow$variable2=="Deny") {
       nDeny <- nDeny+1
-      xDeny <- someRow$count+0
+      xDeny <- someRow$count+xDeny
     }
 
     if (nAward <= 2 || nDeny <= 2) {

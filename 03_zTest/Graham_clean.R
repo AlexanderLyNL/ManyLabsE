@@ -466,20 +466,27 @@ if(length(toRun$studiess)>0){
 
 stat.test$estimate
 
+
 # Alexander -------
 dat <- addUniqueIds(ML2.var, ML2.df)
 dat <- checkUniqueIds(dat)
 
 # Here -------
+
+atanh(0.25)
+
+
+
 alpha <- 0.05
 betaFutility <- 0.2
 
 rOri <- 0.25
 deltaMin <- 2*rOri/sqrt(1-rOri^2)
 
-designObj <- designSaviZ(atanh(rOri), power=0.8,
-                         futility=TRUE, alternative="greater",
-                         wantSampling=FALSE)
+designObj <- designSaviZ(
+  atanh(rOri), power=0.8,
+  futility=TRUE, alternative="twoSided",
+  wantSampling=FALSE)
 
 allSources <- unique(dat$source)
 
@@ -516,12 +523,19 @@ for (i in seq_along(rVec)) {
 which(eValueVec > 1/alpha)
 which(eValueFutVec < betaFutility)
 
-exp(cumsum(log(eValueVec)))
-exp(cumsum(log(eValueFutVec)))
 
-which(exp(cumsum(log(eValueVec))) >= 1/alpha)
-which(exp(cumsum(log(eValueFutVec))) <= betaFutility)
+#
+eMeta <- exp(cumsum(log(eValueVec)))
+eFutMeta <- exp(cumsum(log(eValueFutVec)))
 
+
+which(eMeta >= 1/alpha)
+which(eFutMeta <= betaFutility)
+
+plot(eMeta, log="y", type="l")
+lines(eFutMeta, col="red")
+abline(h=betaFutility)
+abline(h=1/alpha, col="blue")
 
 
 plot(density(mean1Vec), col="red", ylim=c(0, 2))
@@ -541,8 +555,8 @@ allSources <- unique(dat$source)
 cor(dat$variable1, dat$variable2)
 
 
-r1 <- cor(grahamData$cleanDataFilter$variable1, grahamData$cleanDataFilter$variable2)
-n1 <- length(grahamData$cleanDataFilter$variable1)
+r1 <- cor(dat$variable1, dat$variable2)
+n1 <- length(dat$variable1)
 
 z <- atanh(r1) / sqrt(1 / (n1 - 3))
 alpha <- 0.05
