@@ -468,5 +468,8 @@ kipLong <- datLong %>% group_by(source) %>%
 kipShort <- datShort %>% group_by(source) %>%
   summarise(n=n())
 
-sum(kipLong$n==0)
-sum(kipShort$n==0)
+which(kipLong$n==0)
+which(kipShort$n==0)
+
+print("No defunct conditions in a source")
+
