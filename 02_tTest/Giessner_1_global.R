@@ -53,7 +53,9 @@ ML2.in <- get.info(ML2.key, colnames(ML2.df), subset.type)
 # Info based on KeyTable information in study.vars, cases.include, site.include, params.NA
 ML2.id <- get.chain(ML2.in)
 
-ML2.id$df
+ML2.df
+
+
 
 ML2.df <- ML2.df %>%
   dplyr::select(2,7,247,252,257,258,259,260,261,805,904,905,906,907,908,909,910,911,912,913,914,915,938,939,940) %>%
@@ -128,6 +130,8 @@ if(length(toRun$studiess)>0){
         # Get a list containing the data frames to be used in the analysis
         ML2.sr[[g]] <- get.sourceData(ML2.id, ML2.df[gID, ], ML2.in)
       }
+
+
 
       # Double-check nMin
       if(nMin1){
@@ -391,25 +395,52 @@ dplyr::summarise(
 
 # Freq test ------
 
+# ML2.id$vars
+varNames <- c("geis.dv_1", "geis.dv_2", "geis.dv_3", "geis.dv_4", "geis.dv_5")
 
-# debugonce(varfun.Giessner.1)
-ML2.var[[g]] <- varfun.Giessner.1(ML2.sr[[g]])
+rawDat <- ML2.rawdata
 
-stat.params <<- ML2.in$stat.params
+longIndex <- which(!is.na(rawDat$geis1.1))
+
+for (var in varNames) {
+  longIndex <- setdiff(longIndex, which(is.na(rawDat[[var]])))
+}
+
+shortIndex <- which(!is.na(rawDat$geis2.1))
+
+for (var in varNames) {
+  shortIndex <- setdiff(shortIndex, which(is.na(rawDat[[var]])))
+}
+
+longDat <- rawDat[longIndex, ]
+shortDat <- rawDat[shortIndex, ]
 
 
+longVar <- rowMeans(longDat[, varNames])
+shortVar <- rowMeans(shortDat[, varNames])
 
-freqRes <- t.test(variable/137 ~ factor, data = ML2.var[[g]]$cleanDataFilter, var.equal = stat.params$var.equal)
+length(c(longVar, shortVar))
 
-dat <- ML2.var[[g]]$cleanDataFilter
+rawDat$variable <- 1
+rawDat$factor <- "1"
 
+rawDat[longIndex, "variable"] <- longVar
+rawDat[shortIndex, "variable"] <- shortVar
+rawDat[longIndex, "factor"] <- "Long"
+rawDat[shortIndex, "factor"] <- "Short"
 
-studySummary <- dat %>%
+rawDat$uID
+
+cleanDat <- rawDat[c(longIndex, shortIndex), c("uID", "variable", "factor")]
+
+freqRes <- t.test(variable ~ factor, data = cleanDat, var.equal = stat.params$var.equal)
+
+studySummary <- cleanDat %>%
   group_by(factor) %>%
   summarise(
     n = n(),
-    mean = mean(variable/137, na.rm = TRUE),
-    sd = sd(variable/137, na.rm=TRUE)
+    mean = mean(variable, na.rm = TRUE),
+    sd = sd(variable, na.rm=TRUE)
   )
 
 
@@ -420,4 +451,22 @@ studySummary$sd
 
 freqRes$statistic
 freqRes$p.value
+freqRes$statistic*sqrt(sum(studySummary$n)/prod(studySummary$n))
 
+# Alexander ----
+ML2.var[[1]]$cleanDataFilter <- cleanDat
+
+dat <- addSources(ML2.var, ML2.df)
+dat <- checkUniqueIds(dat)
+
+datLong <- dat[dat$factor=="Long", ]
+datShort <- dat[dat$factor=="Short", ]
+
+kipLong <- datLong %>% group_by(source) %>%
+  summarise(n=n())
+
+kipShort <- datShort %>% group_by(source) %>%
+  summarise(n=n())
+
+sum(kipLong$n==0)
+sum(kipShort$n==0)
