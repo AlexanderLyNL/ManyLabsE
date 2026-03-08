@@ -1,4 +1,4 @@
-addUniqueIds <- function(ML2.var, ML2.df) {
+addSources <- function(ML2.var, ML2.df) {
   dat <- ML2.var[[1]]$cleanDataFilter
   sourceColumn <- character(length = dim(dat)[1])
 
@@ -9,6 +9,10 @@ addUniqueIds <- function(ML2.var, ML2.df) {
 
   dat$source <- sourceColumn
   return(dat)
+}
+
+addUniqueIds <- function(ML2.var, ML2.df) {
+  return(addSources(ML2.var, ML2.df))
 }
 
 checkUniqueIds <- function(dat) {
