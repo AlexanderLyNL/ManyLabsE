@@ -1,146 +1,61 @@
-## MANYLABS 2 ANALYSES (https://osf.io/8cd4r/)
-##
-## Direction & Similarity (Tversky & Gati, 1978): Gati_1a_study_global_include_all
-##
-## This is an auto-generated R script (corresponding coder: https://osf.io/ujgs6/)
-##
-## It assumes:
-##
-## 1. You have the following libraries installed: devtools, plyr, tidyverse, rio, osfr
-## 2. You have an internet connection so you can download the data from the OSF repository
-## 3. You have an internet connection to allow sourcing of the manylabRs function library from Github
-## 4. You do not mind that additional packages could be installed, because our functions depend on them (see comment on `init()` below)
-##
-## You can also use the script by downloading the files mentioned under 2 and 3 and changing the code so they import locally, but this is not recommended. One imprtant reason: We are humans, we might have made an error, by downloading from OSF you can be sure to have the most up-to-date data files and scripts!
-
-# INSTRUCTIONS:
-#
-# Make sure the data and files can be read
-# - Set the variables under ANALYSIS INFO (see TIP below)
-#
-# Run this script:
-# - select all >> Run Selected Line(s)
-# - Run line by line
-# - source(filename)
-#
-# Output:
-# - Raw dataset in a data.frame
-# - List object with filtered, possibly also computed data vectors for analysis, based on the Raw dataset.
-# - Clean datset in a data.frame (NOTE: The clean dataset is a long format data.frame representation of the list object)
-# - Results in a data frame
-# - If `saveAll = TRUE` under ANALYSIS INFO, you should see all the files that are in the 'Results' and 'Data' section in the OSF repository for this analysis.
-#   The location of the files are set by the fields of `outdir`
-#
-# TIP:
-#
-# If you downloaded the entire data structure from OSF, set the variable `OSFdata.root` to the location of the folder where the data structure can be found, e.g.
-# Windows: OSFdata.root <- "C:\My Documents\OSFdata"
-# MacOS:   OSFdata.root <- "~/Documents/OSFdata"
-#
-# The data and results will then be written to the 'Data' and 'Results' folders. If you set `overWrite <- FALSE` a date-time ID will be appended to the filename.
-
-
-# SETUP ENVIRONMENT ----
-
 library(devtools)
 library(plyr)
 library(rio)
 library(tidyverse)
 
-# Package to get files from OSF
-if(!"osfr"%in%installed.packages(fields="Package")){devtools::install_github('CenterForOpenScience/osfr')}
-library(osfr)
-osfr::login()
 
-# manylabRs sourceable function library
-devtools::source_url("https://raw.githubusercontent.com/ManyLabsOpenScience/manylabRs/master/R/manylabRs_SOURCE.R")
-# Running init() will install packages that are needed by the functions in `manylabRs_SOURCE.R`.
-# These packages might not be needed for the present analysis.
-init()
+sourcePath <- if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "/Desktop/git/"
+myWd <-  if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "~/Desktop/git/manyLabsE/02_tTest/"
+
+project.root <- file.path("~", sourcePath, "manyLabsE")
+OSFdata.root <- file.path(project.root, "OSFdata")
+
+source(file.path(project.root, "00_utils", "WYQ_manylabRs_SOURCE.R"))
+source(file.path(project.root, "00_utils", "helpers.R"))
 
 # ANALYSIS INFO ----
 
 
-study.description      <- 'Direction & Similarity (Tversky & Gati, 1978)'
-analysis.unique.id     <- 81
-analysis.name          <- 'Gati.1a'
+study.description      <- 'Priming Consumerism (Bauer et al., 2012)'
+analysis.unique.id     <- 17
+analysis.name          <- 'Bauer.1'
 analysis.type          <- 1
 analysis.type.name     <- 'study_global_include'
 analysis.type.groups   <- 'Source.Global'
 Nmin.raw               <- 30
 Nmin.cond              <- 15
 subset                 <- 'all'
-onlineTables           <- TRUE
-staticData             <- TRUE
-saveAll                <- TRUE
-overWrite              <- TRUE
-OSFdata.root           <- file.path('~','OSFdata')
-analysis.root          <- file.path(OSFdata.root,study.description,analysis.name,'Global')
-outdir                 <- list(Data = file.path(analysis.root,'Data'), Results = file.path(analysis.root,'Results'))
-
-
-# This function will be used to change the raw dataset to a dataset ready for analysis
-
-varfun.Gati.1
-
-
-if(dplyr::between(analysis.type,2,3)){subset <- "all"}
+subset.type <- "all"
+saveAll <- FALSE
 
 # GET LOOKUP TABLES ----
+ML2.key <- rio::import(file.path(project.root, "00_data", "ML2_KeyTable.csv"))
+ML2.key <- ML2.key[!is.na(ML2.key$unique.id) & ML2.key$unique.id == analysis.unique.id, ]
+SourceInfoTable <- rio::import(file.path(OSFdata.root, "!!KeyTables", "ML2_SourceInfo - ML2_SourceInfo.csv"))
 
-if(onlineTables){
-  # Get the Keytable with analysis information
-  ML2.key <- get.GoogleSheet(data='ML2masteRkey')$df
-  ML2.key <- ML2.key[!is.na(ML2.key$unique.id)&ML2.key$unique.id==analysis.unique.id,]
-
-  # Get info about the sites
-  SourceInfoTable    <- get.GoogleSheet(url = "https://docs.google.com/spreadsheets/d/1Qn_kVkVGwffBAmhAbpgrTjdxKLP1bb2chHjBMVyGl1s/pub?gid=1435507167&single=true&output=csv")$df
+# Get the correct slate according to info in ML2.key['study.slate']
+if (ML2.key$study.slate == 1) {
+  ML2.df <- rio::import(file.path(OSFdata.root, "!!RawData", "ML2_S1.csv"))
 } else {
-  # Get the Keytable with analysis information
-  ML2.key <- rio::import(file.path(OSFdata.root,"!!KeyTables","ML2_KeyTable.csv"))
-  ML2.key <- ML2.key[!is.na(ML2.key$unique.id)&ML2.key$unique.id==analysis.unique.id,]
-
-  # Get info about the sites
-  SourceInfoTable    <- rio::import(file.path(OSFdata.root,"!!KeyTables","ML2_SourceInfoTable.csv"))
+  ML2.df <- rio::import(file.path(OSFdata.root, "!!RawData", "ML2_S2.csv"))
 }
 
-# GET DATA ----
 
-if(!staticData){
-  # CANNOT TEST UNTIL OSF DATA ARE PUBLIC
-  # Get the correct slate according to info in ML2.key['study.slate']
-  if(ML2.key[study,'study.slate'] == 1){
-    data <- osfr::download_files(id = 'cwjp3', path =  getwd())
-  } else {
-    data <- osfr::download_files(id = 'jg9hc', path =  getwd())
-  }
-  ML2.df <- rio::import(data)
-  disp(paste("Downloaded data from OSF"), header = FALSE, footer = FALSE)
-} else {
-  # Get the correct slate according to info in ML2.key['study.slate']
-  if(ML2.key$study.slate == 1){
-    ML2.df <- rio::import(file.path(OSFdata.root,"!!RawData","ML2_Slate1.csv"))
-  } else {
-    ML2.df <- rio::import(file.path(OSFdata.root,"!!RawData","ML2_Slate2.csv"))
-  }
-}
 
 # PREPARE DATA & OUTPUT ----
-
 # Add a unique ID
-ML2.df$uID = seq(1, nrow(ML2.df))
+ML2.df$uID <- seq(1, nrow(ML2.df))
 
 # Get info to create a dataset for the current study
-# keytable <- ML2.key
-ML2.in <- get.info(ML2.key, colnames(ML2.df), subset)
+ML2.in <- get.info(ML2.key, colnames(ML2.df), subset.type)
 
 # Generate chain to select variables for the data frame and create a filter chain for the variables to use for analysis
 # Info based on KeyTable information in study.vars, cases.include, site.include, params.NA
 ML2.id <- get.chain(ML2.in)
 
-# Apply the df chain to select relevant subset of variables
-
-ML2.df <- ML2.df  %>% dplyr::select(1,6,708,709,710,711,712,713,714,715,716,717,718,719,720,721,722,723,724,725,726,727,728,734,735,736,737,738,739,740,741,742,743,744,745,746,747,748,749,750,751,752,753,754,804,903,904,905,906,907,908,909,910,911,912,913,914,937,938,939) %>% dplyr::filter(is.character(source))
+ML2.df <- ML2.df %>%
+  dplyr::select(2,7,277,282,290,521,522,523,524,525,526,527,528,529,530,531,532,535,536,537) %>%
+  dplyr::filter(is.character(source))
 
 
 
@@ -225,8 +140,8 @@ if(length(toRun$studiess)>0){
 
       if(all(nMin1,nMin2)){
 
-# To see the function code type:varfun.Gati.1, or lookup in manylabRs_SOURCE.R
-ML2.var[[g]] <- varfun.Gati.1(ML2.sr[[g]])
+# To see the function code type:varfun.Bauer.1, or lookup in manylabRs_SOURCE.R
+ML2.var[[g]] <- varfun.Bauer.1(ML2.sr[[g]])
 
 
         # Check equal variance assumption
@@ -240,7 +155,7 @@ ML2.var[[g]] <- varfun.Gati.1(ML2.sr[[g]])
         stat.params <<- ML2.in$stat.params
 
 
-stat.test   <- try.CATCH(with(ML2.var[[g]],summary(lmerTest::lmer(DV ~ Condition + (Condition|uID) + (Condition|itemID)))))
+stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(y = Consumer, x = Individual, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
 
 
         # Check for errors and warnings
@@ -472,3 +387,36 @@ dplyr::summarise(
     #rm(ML2.in, ML2.var, ML2.id, ML2.df, ML2.sr)
   }
 }
+
+# Freq test ------
+
+ML2.var[[g]] <- varfun.Bauer.1(ML2.sr[[g]])
+
+stat.params <<- ML2.in$stat.params
+
+
+freqRes <- t.test(variable ~ factor, data = ML2.var[[g]]$cleanDataFilter, var.equal = stat.params$var.equal)
+
+dat <- ML2.var[[g]]$cleanDataFilter
+
+
+studySummary <- dat %>%
+  group_by(factor) %>%
+  summarise(
+    n = n(),
+    mean = mean(variable, na.rm = TRUE),
+    sd = sd(variable, na.rm=TRUE)
+  )
+
+
+sum(studySummary$n)
+studySummary$mean
+studySummary$sd
+
+freqRes$statistic
+freqRes$p.value
+freqRes$statistic*sqrt(sum(studySummary$n)/prod(studySummary$n))
+
+# Alexander ----
+print("FACTOR CHANGE SIGN")
+

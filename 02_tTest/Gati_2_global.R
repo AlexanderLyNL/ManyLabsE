@@ -13,17 +13,17 @@ OSFdata.root <- file.path(project.root, "OSFdata")
 source(file.path(project.root, "00_utils", "WYQ_manylabRs_SOURCE.R"))
 source(file.path(project.root, "00_utils", "helpers.R"))
 
-
 # ANALYSIS INFO ----
-study.description      <- 'Tempting Fate (Risen & Gilovich, 2008)'
-analysis.unique.id     <- 50
-analysis.name          <- 'Risen.1'
+
+study.description      <- 'Direction & Similarity (Tversky & Gati, 1978)'
+analysis.unique.id     <- 83
+analysis.name          <- 'Gati.2'
 analysis.type          <- 1
 analysis.type.name     <- 'study_global_include'
 analysis.type.groups   <- 'Source.Global'
 Nmin.raw               <- 30
 Nmin.cond              <- 15
-# subset                 <- 'all'
+subset                 <- 'all'
 subset.type <- "all"
 saveAll <- FALSE
 
@@ -52,18 +52,12 @@ ML2.in <- get.info(ML2.key, colnames(ML2.df), subset.type)
 # Info based on KeyTable information in study.vars, cases.include, site.include, params.NA
 ML2.id <- get.chain(ML2.in)
 
+ML2.id$df
 # Apply the df chain to select relevant subset of variables
-# ML2.df <- ML2.df  %>%
-#   dplyr::select(1,6,165,172,804,903,904,905,906,907,908,909,910,911,912,913,914,937,938,939) %>%
-#   dplyr::filter(is.character(source))
 
-
-ML2.df  <- ML2.df %>%
-  dplyr::select(2,7,166,173,805,904,905,906,907,908,909,910,911,912,913,914,915,938,939,940) %>%
+ML2.df <- ML2.df %>%
+  dplyr::select(2,7,709,710,711,712,713,714,715,716,717,718,719,720,721,722,723,724,725,726,727,728,729,735,736,737,738,739,740,741,742,743,744,745,746,747,748,749,750,751,752,753,754,755,805,904,905,906,907,908,909,910,911,912,913,914,915,938,939,940) %>%
   dplyr::filter(is.character(source))
-
-
-dim(ML2.df)
 
 # Decide which analyses to run on which groups
 toRun  <- decide.analysis(ML2.key, analysis.unique.id, analysis.type, doAll = TRUE)
@@ -146,8 +140,8 @@ if(length(toRun$studiess)>0){
 
       if(all(nMin1,nMin2)){
 
-        # To see the function code type:varfun.Risen.1, or lookup in manylabRs_SOURCE.R
-        ML2.var[[g]] <- varfun.Risen.1(ML2.sr[[g]])
+# To see the function code type:varfun.Gati.2, or lookup in manylabRs_SOURCE.R
+ML2.var[[g]] <- varfun.Gati.2(ML2.sr[[g]])
 
 
         # Check equal variance assumption
@@ -161,7 +155,7 @@ if(length(toRun$studiess)>0){
         stat.params <<- ML2.in$stat.params
 
 
-        stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = Unprepared, y = Prepared, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
+stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = Asymmetry, mu=0, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
 
 
         # Check for errors and warnings
@@ -218,28 +212,28 @@ if(length(toRun$studiess)>0){
 
 
 
-          SourceInfo <- raw.df[[g]] %>% dplyr::filter(case.include) %>%
-            dplyr::summarise(
-              N.sources.global    = length(unique(Source.Global)),
-              N.sources.primary   = length(unique(Source.Primary)),
-              N.sources.secondary = length(unique(Source.Secondary)),
-              N.countries         = length(unique(Country)),
-              N.locations         = length(unique(Location)),
-              N.languages         = length(unique(Language)),
-              Pct.WEIRD           = mean(Weird, na.rm=TRUE)*100,
-              Tbl.Execution       = paste0(capture.output(table(Execution)),collapse='\n'),
-              Tbl.subjectpool     = paste0(capture.output(table(SubjectPool)),collapse='\n'),
-              Tbl.setting       = paste0(capture.output(table(Setting)),collapse='\n'),
-              Tbl.Tablet        = paste0(capture.output(table(Tablet)),collapse='\n'),
-              Tbl.Pencil        = paste0(capture.output(table(Pencil)),collapse='\n'),
-              N.studyorders1    = length(unique(StudyOrderN)),
-              N.IDiffOrderN     = length(unique(IDiffOrderN)),
-              N.uIDs            = length(unique(uID)),
-              N.studyorders2    = length(unique(study.order)),
-              Tbl.analysistype  = paste0(capture.output(table(analysis.type)),collapse='\n'),
-              Tbl.subset        = paste0(capture.output(table(subset)),collapse='\n'),
-              N.cases.included  = sum(case.include, na.rm=TRUE),
-              N.cases.excluded  = sum(case.include==FALSE,na.rm=TRUE))
+SourceInfo <- raw.df[[g]] %>% dplyr::filter(case.include) %>%
+dplyr::summarise(
+  N.sources.global    = length(unique(Source.Global)),
+  N.sources.primary   = length(unique(Source.Primary)),
+  N.sources.secondary = length(unique(Source.Secondary)),
+  N.countries         = length(unique(Country)),
+  N.locations         = length(unique(Location)),
+  N.languages         = length(unique(Language)),
+  Pct.WEIRD           = mean(Weird, na.rm=TRUE)*100,
+  Tbl.Execution       = paste0(capture.output(table(Execution)),collapse='\n'),
+  Tbl.subjectpool     = paste0(capture.output(table(SubjectPool)),collapse='\n'),
+  Tbl.setting       = paste0(capture.output(table(Setting)),collapse='\n'),
+  Tbl.Tablet        = paste0(capture.output(table(Tablet)),collapse='\n'),
+  Tbl.Pencil        = paste0(capture.output(table(Pencil)),collapse='\n'),
+  N.studyorders1    = length(unique(StudyOrderN)),
+  N.IDiffOrderN     = length(unique(IDiffOrderN)),
+  N.uIDs            = length(unique(uID)),
+  N.studyorders2    = length(unique(study.order)),
+  Tbl.analysistype  = paste0(capture.output(table(analysis.type)),collapse='\n'),
+  Tbl.subset        = paste0(capture.output(table(subset)),collapse='\n'),
+  N.cases.included  = sum(case.include, na.rm=TRUE),
+  N.cases.excluded  = sum(case.include==FALSE,na.rm=TRUE))
 
 
 
@@ -394,59 +388,21 @@ if(length(toRun$studiess)>0){
   }
 }
 
-
-
 # Freq test ------
 
-ML2.var[[g]] <- varfun.Risen.1(ML2.sr[[g]])
+
+ML2.var[[g]] <- varfun.Gati.2(ML2.sr[[g]])
 
 stat.params <<- ML2.in$stat.params
-
-
-freqRes <- t.test(variable ~ factor, data = ML2.var[[g]]$cleanDataFilter, var.equal = stat.params$var.equal)
+stat.test   <- try.CATCH(with(ML2.var[[g]],
+                              t.test(x = Asymmetry, mu=0, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
 
 dat <- ML2.var[[g]]$cleanDataFilter
+dim(dat)
 
-
-studySummary <- dat %>%
-  group_by(factor) %>%
-  summarise(
-    n = n(),
-    mean = mean(variable, na.rm = TRUE),
-    sd = sd(variable, na.rm=TRUE)
-  )
-
-sum(studySummary$n)
-studySummary$mean
-studySummary$sd
-
+freqRes <- stat.test$value
 freqRes$statistic
 freqRes$p.value
-freqRes$statistic*sqrt(sum(studySummary$n)/prod(studySummary$n))
+freqRes$statistic/sqrt(dim(dat)[1])
 
 # Alexander ----
-print("FACTOR CHANGE SIGN")
-
-
-
-
-
-stat.params <<- ML2.in$stat.params
-
-
-freqRes <- t.test(variable ~ factor, data = ML2.var[[g]]$cleanDataFilter, var.equal = stat.params$var.equal)
-
-dat <- ML2.var[[g]]$cleanDataFilter
-
-
-studySummary <- dat %>%
-  group_by(factor) %>%
-  summarise(
-    n = n(),
-    mean = mean(variable, na.rm = TRUE),
-    sd = sd(variable, na.rm=TRUE)
-  )
-
-studySummary
-
-# Alexander ------
