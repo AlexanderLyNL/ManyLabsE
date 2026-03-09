@@ -23,6 +23,7 @@ project.root <- file.path("~", sourcePath, "manyLabsE")
 OSFdata.root <- file.path(project.root, "OSFdata")
 
 source(file.path(project.root, "00_utils", "WYQ_manylabRs_SOURCE.R"))
+source(file.path(project.root, "00_utils", "helpers.R"))
 
 # ANALYSIS INFO ----
 study.description <- "Moral Cleansing (Zhong & Liljenquist, 2006)"
@@ -157,20 +158,13 @@ if (all(nMin1, nMin2)) {
 }
 
 # Alexander -----
+dat <- addSources(ML2.var, ML2.df)
+dat <- checkUniqueIds(dat)
 
-sourceColumn <- character(length = dim(ML2.var[[1]]$cleanDataFilter)[1])
+tempRes <- removeOneConditionSources(dat)
 
-for (i in seq_along(sourceColumn)) {
-  iets <- ML2.df[ML2.df$uID == ML2.var[[1]]$cleanDataFilter$uID[i], ]
-  sourceColumn[i] <- iets$source
-}
-
-ML2.var[[1]]$cleanDataFilter$source <- sourceColumn
-
-zhongData <- ML2.var[[1]]
-
-
-head(zhongData)
+allSources <- tempRes$allSources
+sampleSize <- tempRes$sampleSize
 
 
 # ASDF---------

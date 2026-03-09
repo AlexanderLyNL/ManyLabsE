@@ -406,3 +406,12 @@ freqRes$p.value
 freqRes$statistic/sqrt(dim(dat)[1])
 
 # Alexander ----
+dat <- addSources(ML2.var, ML2.df)
+
+# save(dat, stat.params, file="gati.RData")
+
+dat <- checkUniqueIds(dat)
+tempRes <- removeOneConditionSources(dat)
+
+allSources <- tempRes$allSources
+sampleSize <- tempRes$sampleSize

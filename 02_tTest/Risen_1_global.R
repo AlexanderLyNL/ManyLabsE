@@ -450,3 +450,12 @@ studySummary <- dat %>%
 studySummary
 
 # Alexander ------
+dat <- addSources(ML2.var, ML2.df)
+
+# save(dat, stat.params, file="risen.RData")
+
+dat <- checkUniqueIds(dat)
+tempRes <- removeOneConditionSources(dat)
+
+allSources <- tempRes$allSources
+sampleSize <- tempRes$sampleSize

@@ -418,3 +418,11 @@ freqRes$p.value
 freqRes$statistic*sqrt(sum(studySummary$n)/prod(studySummary$n))
 
 # Alexander ----
+dat <- addSources(ML2.var, ML2.df)
+# save(dat, stat.params, file="anderson.RData")
+
+dat <- checkUniqueIds(dat)
+tempRes <- removeOneConditionSources(dat)
+
+allSources <- tempRes$allSources
+sampleSize <- tempRes$sampleSize

@@ -454,22 +454,6 @@ freqRes$p.value
 freqRes$statistic*sqrt(sum(studySummary$n)/prod(studySummary$n))
 
 # Alexander ----
-ML2.var[[1]]$cleanDataFilter <- cleanDat
-
 dat <- addSources(ML2.var, ML2.df)
-dat <- checkUniqueIds(dat)
-
-datLong <- dat[dat$factor=="Long", ]
-datShort <- dat[dat$factor=="Short", ]
-
-kipLong <- datLong %>% group_by(source) %>%
-  summarise(n=n())
-
-kipShort <- datShort %>% group_by(source) %>%
-  summarise(n=n())
-
-which(kipLong$n==0)
-which(kipShort$n==0)
-
-print("No defunct conditions in a source")
-
+# stat.params <<- ML2.in$stat.params
+# save(dat, stat.params, file="giessner.RData")

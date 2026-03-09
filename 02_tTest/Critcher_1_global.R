@@ -425,3 +425,22 @@ freqRes$statistic*sqrt(sum(studySummary$n)/prod(studySummary$n))
 print("FACTOR CHANGE SIGN")
 print("https://docs.google.com/document/d/1b7MTOAiB7NPWlYBnwkhNTsj9i-upDMODgQ9t_djjSz8/edit?tab=t.0")
 print("Critcher stats are duplicated across columns for the pencil-and-paper sites (variables crit2.1 and crit1.1, which should only have a value for one or the other). For example, site ‘bc’:")
+
+
+dat <- addSources(ML2.var, ML2.df)
+dat$factor <- ordered(dat$factor,
+                      sort(unique(dat$factor), decreasing=TRUE))
+
+freqRes2 <- t.test(variable ~ factor, data = dat, var.equal = stat.params$var.equal)
+freqRes2$statistic
+freqRes$statistic
+
+# save(dat, stat.params, file="critcher.RData")
+
+dat <- checkUniqueIds(dat)
+tempRes <- removeOneConditionSources(dat)
+
+allSources <- tempRes$allSources
+sampleSize <- tempRes$sampleSize
+
+
