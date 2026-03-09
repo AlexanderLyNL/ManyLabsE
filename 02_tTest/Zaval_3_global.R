@@ -428,4 +428,4 @@ freqRes2 <- t.test(variable ~ factor, data = dat, var.equal = stat.params$var.eq
 freqRes2$statistic
 freqRes$statistic
 
-
+# save(dat, stat.params, file="zaval.RData")
