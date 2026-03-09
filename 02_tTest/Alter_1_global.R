@@ -426,3 +426,241 @@ tempRes <- removeOneConditionSources(dat)
 
 allSources <- tempRes$allSources
 sampleSize <- tempRes$sampleSize
+
+dat <- dat[dat$source %in% allSources, ]
+
+if (stat.params$alternative=="two.sided")
+  stat.params$alternative <- "twoSided"
+
+
+# Here -------
+alpha <- 0.05
+betaFutility <- alpha
+deltaMin <- 0.63
+
+designObj <- designSaviT(alpha=alpha,
+  deltaMin=deltaMin, futility=TRUE, power=0.8,
+  varEqual=stat.params$var.equal, testType="twoSample",
+  alternative=stat.params$alternative, wantSampling=FALSE)
+
+maxNX <- max(sampleSize[, 1])
+maxNY <- max(sampleSize[, 2])
+
+nMax <- max(rowSums(sampleSize))
+
+factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
+
+
+# Result containers ----
+#   General data set attributes
+n1Vec <- n2Vec <- ratios  <- numeric(length(allSources))
+
+
+#   sample sizes for p-value based inference
+n1VecFreq <- n2VecFreq <- pValues <- numeric(length(allSources))
+
+#   sample sizes for e-value based inference
+#
+n1VecE <- n2VecE <- firstTimes <- eValues <- numeric(length(allSources))
+n1VecEFut <- n2VecEFut <- firstTimesFut <- eValuesFut <- numeric(length(allSources))
+
+allEValueVecs <- matrix(nrow=nMax,
+                        ncol=length(allSources))
+
+allEValueVecsFut <- allEValueVecs
+
+# Analyse data for each source
+# loop start -----
+for (i in 1:length(allSources)) {
+  someDat <- dat[dat$source==allSources[i], ]
+
+  # nParticipants <- length(someDat$uID)
+  # someOrder <- sample(someDat$uID, nParticipants)
+
+  ## Data -----
+  x <- someDat[which(someDat$factor==factorLevels[1]), ]$variable
+  y <- someDat[which(someDat$factor==factorLevels[2]), ]$variable
+
+  # Remove non-available entries
+  x <- x[!is.na(x)]
+  n1 <- length(x)
+
+  y <- y[!is.na(y)]
+  n2 <- length(y)
+
+  # Store valid sample size characteristics
+  # n1VecFreq[i] <- n1Freq <- n1Vec[i] <- n1
+  # n2VecFreq[i] <- n2Freq <- n2Vec[i] <- n2
+
+  tempResult <- t.test(x[1:n1], y[1:n2],
+                       var.equal=stat.params$var.equal)
+  pValues[i] <- tempResult$p.value
+
+  ## e-value ----
+  # n1VecE[i] <- n1EValue <- sampleSize[i, 1]
+  # n2VecE[i] <- n2EValue <- sampleSize[i, 2]
+
+  ratios[i] <- n2/n1
+
+  # debugonce(saviTTest)
+  nParticipants <- n1+n2
+
+  set.seed(seed)
+  for (k in 1:nSim) {
+    tempRes <- twoSampleTTestRandomOrder(
+      "x"=x, "y"=y, "n1"=n1, "n2"=n2,
+      "designObj"=designObj, "nuMin"=nuMin,
+      "alpha"=alpha, "betaFutility"=betaFutility
+    )
+
+    tempRes$nStop
+    tempRes$eValue
+    tempRes$eValueFut
+  }
+}
+# loop end ----
+
+sum(is.finite(firstTimes))
+sum(is.finite(firstTimesFut))
+
+for (i in 1:61) {
+  if (sum(is.na(allEValueVecs[, i]))>0)
+    print(i)
+}
+
+allEValueVecs[, 8]
+
+firstTimes
+firstTimesFut
+
+# Scenario 1 ----
+# In the order of how the sources are mentioned, but can use randomisation
+#   Also only up to n1=n1End and n2 = ratio*n1,
+#   where ratio n2End/n1End, for instance when n1End > 47.
+#   When n1End < 47, then the eValue is copied until n1=47
+#   For instance:
+#
+#   print(allEValueVecs[, 3])
+#
+n1End <- dim(allEValueVecs)[1]
+
+eMeta <- exp(cumsum(log(allEValueVecs[n1End, ])))
+eFutMeta <- exp(cumsum(log(allEValueVecsFut[n1End, ])))
+
+plot(eMeta, type="l", log="y")
+lines(eFutMeta, col="red")
+
+eMetaAverage <- cumsum(allEValueVecs[n1End, ])/(1:length(allSources))
+eFutMetaAverage <- cumsum(allEValueVecsFut[n1End, ])/(1:length(allSources))
+
+plot(eMetaAverage, type="l", log="y")
+lines(eFutMetaAverage, col="red")
+
+which(eMeta > 1/alpha)
+which(eMetaAverage > 1/alpha)
+
+which(eFutMeta <= betaFutility)
+which(eFutMetaAverage <= betaFutility)
+
+
+# Scenario 2 ----
+eMeta <- exp(rowSums(log(allEValueVecs)))
+eFutMeta <- exp(rowSums(log(allEValueVecsFut)))
+
+plot(eMeta, type="l", log="y")
+lines(eFutMeta, col="red")
+
+eMetaAverage <- rowMeans(allEValueVecs)
+eFutMetaAverage <- rowMeans(allEValueVecsFut)
+
+plot(eMetaAverage, type="l", log="y")
+lines(eFutMetaAverage, col="red")
+
+which(eMeta >= 1/alpha)
+which(eMetaAverage >= 1/alpha)
+
+which(eFutMeta <= betaFutility)
+which(eFutMetaAverage <= betaFutility)
+
+# Scenario 3 ---------
+nTotal <- length(unique(dat$uID))
+
+
+set.seed(1)
+someOrder <- sample(unique(dat$uID), nTotal)
+
+sourceDataTracker <- vector(mode="list", length=length(allSources))
+names(sourceDataTracker) <- allSources
+
+for (neem in allSources)
+  sourceDataTracker[[neem]] <- list(x=NULL, y=NULL)
+
+eFutCollection <- eCollection <- as.data.frame(matrix(ncol=length(allSources), nrow=nTotal))
+names(eFutCollection) <- names(eCollection) <- allSources
+eFutCollection[1, ] <- eCollection[1, ] <- 1
+
+
+for (i in seq_along(someOrder)) {
+  # for (i in 1:1000) {
+  someId <- someOrder[i]
+
+  someRow <- dat[which(dat$uID==someId), ]
+
+  someSource <- someRow$source
+
+  sourceDataTemp <- sourceDataTracker[[someSource]]
+
+  x <- sourceDataTemp$x
+  y <- sourceDataTemp$y
+
+  if (someRow$factor==factorLevels[1]) {
+    sourceDataTracker[[someSource]]$x <- x <- c(x, someRow$variable)
+  } else if (someRow$factor==factorLevels[2]) {
+    sourceDataTracker[[someSource]]$y <- y <- c(y, someRow$variable)
+  }
+
+  if (i >1) {
+    someCheck <- checkXY(x, y)
+
+    if (someCheck) {
+      tempRes <- saviTTest(x, y, designObj=designObj,
+                           sequential=FALSE)
+
+      eCollection[[someSource]][i] <- tempRes$eValue
+      eFutCollection[[someSource]][i] <- tempRes$eValueFut
+    } else {
+      eCollection[[someSource]][i] <- 1
+      eFutCollection[[someSource]][i] <- 1
+    }
+
+    for (source in allSources) {
+      if (source!=someSource) {
+        eCollection[[source]][i] <- eCollection[[source]][i-1]
+        eFutCollection[[source]][i] <- eFutCollection[[source]][i-1]
+      }
+    }
+  }
+}
+
+eMatrix <- as.matrix(eCollection)
+eFutMatrix <- as.matrix(eFutCollection)
+
+eMeta <- exp(rowSums(log(eMatrix)))
+eFutMeta <- exp(rowSums(log(eFutMatrix)))
+
+plot(1:nTotal, eMeta, type="l", log="y")
+lines(1:nTotal, eFutMeta, col="red")
+
+
+eMetaAverage <- rowMeans(eMatrix)
+eFutMetaAverage <- rowMeans(eFutMatrix)
+
+plot(1:nTotal, eMetaAverage, type="l", log="y")
+lines(1:nTotal, eFutMetaAverage, col="red")
+
+which(eMeta >= 1/alpha)
+which(eMetaAverage >= 1/alpha)
+
+which(eFutMeta <= betaFutility)
+which(eFutMetaAverage <= betaFutility)
+

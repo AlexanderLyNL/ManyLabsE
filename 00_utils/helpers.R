@@ -38,14 +38,18 @@ checkUniqueIds <- function(dat) {
 removeOneConditionSources <- function(dat) {
   allSources <- unique(dat$source)
 
-  dataLeveled <- vector("list", length(levels(dat$factor)))
-  badIndices <- vector("list", length(levels(dat$factor)))
-  sampleSize <- matrix(nrow=length(allSources), ncol=length(levels(dat$factor)))
+  nSources <- length(allSources)
+  factorLevels <- unique(dat$factor)
+  nFactors <- length(factorLevels)
 
-  for (i in seq_along(dataLeveled))
-    dataLeveled[[i]] <- dat %>% dplyr::filter(factor==levels(dat$factor)[i])
+  dataLeveled <- vector("list", length=nFactors)
+  badIndices <- vector("list", length=nFactors)
+  sampleSize <- matrix(nrow=nSources, ncol=nFactors)
 
-  for (i in seq_along(allSources)) {
+  for (i in 1:nFactors)
+    dataLeveled[[i]] <- dat %>% dplyr::filter(factor==factorLevels[i])
+
+  for (i in 1:nSources) {
     someSource <- allSources[i]
 
     for (j in seq_along(dataLeveled)) {
@@ -57,7 +61,7 @@ removeOneConditionSources <- function(dat) {
 
   allBadIndices <- integer(0)
 
-  for (i in seq_along(badIndices)) {
+  for (i in 1:nFactors) {
     badIndices[[i]] <- which(sampleSize[, i]==0)
     allBadIndices <- union(allBadIndices, badIndices[[i]])
     # allBadIndices <-
@@ -71,7 +75,7 @@ removeOneConditionSources <- function(dat) {
     sampleSize <- sampleSize[-allBadIndices, ]
   }
 
-  res <- list("allSources"=allSources, sampleSize=sampleSize)
+  res <- list("allSources"=allSources, "sampleSize"=sampleSize)
   return(res)
 }
 
@@ -86,6 +90,12 @@ checkXY <- function(x, y) {
   if (is.null(y))
     return(FALSE)
 
+  if (length(x)==0)
+    return(FALSE)
+
+  if (length(y)==0)
+    return(FALSE)
+
   if (is.na(x))
     return(FALSE)
 
@@ -94,3 +104,48 @@ checkXY <- function(x, y) {
 
   return(TRUE)
 }
+
+
+twoSampleTTestRandomOrder <- function(
+    x, y, n1, n2, designObj,
+    nuMin=3, alpha=0.05,
+    betaFutility=alpha, nMax=n1+n2) {
+
+  nParticipants <- n1+n2
+  someOrder <- sample(nParticipants, nParticipants)
+
+  nMax <- min(nMax, nParticipants)
+
+  xRun <- numeric(0)
+  yRun <- numeric(0)
+
+  totalVar <- c(x, y)
+
+  for (j in seq_along(someOrder)) {
+    partId <- someOrder[j]
+
+    if (partId <= n1) {
+      xRun <- c(xRun, totalVar[someOrder[j]])
+    } else {
+      yRun <- c(yRun, totalVar[someOrder[j]])
+    }
+
+    someCheck <- checkXY(xRun, yRun)
+
+    if (someCheck) {
+      tempRes <- saviTTest(
+        xRun, yRun, designObj=designObj,
+        sequential=FALSE, nuMin=nuMin)
+
+      eNow <- tempRes$eValue
+      eFutNow <- tempRes$eValueFut
+
+      if (eNow >= 1/alpha || eFutNow <= betaFutility ||
+          j==nMax) {
+        res <- list(nStop=j, eValue=eNow, eValueFut=eFutNow)
+        return(res)
+      }
+    }
+  }
+}
+

@@ -426,7 +426,19 @@ freqRes$statistic*sqrt(sum(studySummary$n)/prod(studySummary$n))
 
 # Alexander ----
 print("FACTOR CHANGE SIGN")
+dat$factor <- ordered(dat$factor, sort(levels(dat$factor), decreasing=TRUE))
 
+freqRes2<- t.test(variable ~ factor, data = dat, var.equal = stat.params$var.equal)
+
+save(dat, stat.params, file="risen.RData")
+
+
+
+dat <- addSources(ML2.var, ML2.df)
+# save(dat, stat.params, file="alter.RData")
+
+dat <- checkUniqueIds(dat)
+tempRes <- removeOneConditionSources(dat)
 
 
 
