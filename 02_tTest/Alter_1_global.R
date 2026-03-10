@@ -441,97 +441,51 @@ deltaMin <- 0.63
 designObj <- designSaviT(alpha=alpha,
   deltaMin=deltaMin, futility=TRUE, power=0.8,
   varEqual=stat.params$var.equal, testType="twoSample",
-  alternative=stat.params$alternative, wantSampling=FALSE)
+  alternative=stat.params$alternative)
 
-maxNX <- max(sampleSize[, 1])
-maxNY <- max(sampleSize[, 2])
+# Scenario 1 ----
+res1 <- scenario1T(dat=dat, allSources=allSources, designObj=designObj,
+           nuMin=3, alpha=alpha, betaFutility=betaFutility,
+           seed=1, nSim=1e3)
 
-nMax <- max(rowSums(sampleSize))
+res1$mostNStudiesForAlternative
+res1$mostNStudiesForFutility
 
-factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
+res1$mostNSamplesForAlternative
+res1$mostNSamplesForFutility
+
+mean(res1$logMetaEvalues)
+sd(res1$logMetaEvalues)
+mean(res1$logMetaEvaluesFut)
+sd(res1$logMetaEvaluesFut)
+
+mean(res1$nStopVec)
+
+mean(res1$stopForAlt)
+mean(res1$stopForFutility)
+
+mean(res1$nStopVec)
+sd(res1$nStopVec)
+
+# Scenario 2-----
+res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e2)
 
 
-# Result containers ----
-#   General data set attributes
-n1Vec <- n2Vec <- ratios  <- numeric(length(allSources))
+logEValues<- rowSums(log(res2$eValues))
+mean(logEValues)
+sd(logEValues)
+
+logEValuesFut <- rowSums(log(res2$eValuesFut))
+mean(logEValuesFut)
+sd(logEValuesFut)
 
 
-#   sample sizes for p-value based inference
-n1VecFreq <- n2VecFreq <- pValues <- numeric(length(allSources))
+stopingTimes <- rowSums(res2$nStop)
+mean(stopingTimes)
+sd(stopingTimes)
 
-#   sample sizes for e-value based inference
-#
-n1VecE <- n2VecE <- firstTimes <- eValues <- numeric(length(allSources))
-n1VecEFut <- n2VecEFut <- firstTimesFut <- eValuesFut <- numeric(length(allSources))
-
-allEValueVecs <- matrix(nrow=nMax,
-                        ncol=length(allSources))
-
-allEValueVecsFut <- allEValueVecs
-
-# Analyse data for each source
-# loop start -----
-for (i in 1:length(allSources)) {
-  someDat <- dat[dat$source==allSources[i], ]
-
-  # nParticipants <- length(someDat$uID)
-  # someOrder <- sample(someDat$uID, nParticipants)
-
-  ## Data -----
-  x <- someDat[which(someDat$factor==factorLevels[1]), ]$variable
-  y <- someDat[which(someDat$factor==factorLevels[2]), ]$variable
-
-  # Remove non-available entries
-  x <- x[!is.na(x)]
-  n1 <- length(x)
-
-  y <- y[!is.na(y)]
-  n2 <- length(y)
-
-  # Store valid sample size characteristics
-  # n1VecFreq[i] <- n1Freq <- n1Vec[i] <- n1
-  # n2VecFreq[i] <- n2Freq <- n2Vec[i] <- n2
-
-  tempResult <- t.test(x[1:n1], y[1:n2],
-                       var.equal=stat.params$var.equal)
-  pValues[i] <- tempResult$p.value
-
-  ## e-value ----
-  # n1VecE[i] <- n1EValue <- sampleSize[i, 1]
-  # n2VecE[i] <- n2EValue <- sampleSize[i, 2]
-
-  ratios[i] <- n2/n1
-
-  # debugonce(saviTTest)
-  nParticipants <- n1+n2
-
-  set.seed(seed)
-  for (k in 1:nSim) {
-    tempRes <- twoSampleTTestRandomOrder(
-      "x"=x, "y"=y, "n1"=n1, "n2"=n2,
-      "designObj"=designObj, "nuMin"=nuMin,
-      "alpha"=alpha, "betaFutility"=betaFutility
-    )
-
-    tempRes$nStop
-    tempRes$eValue
-    tempRes$eValueFut
-  }
-}
+dim(dat)
 # loop end ----
-
-sum(is.finite(firstTimes))
-sum(is.finite(firstTimesFut))
-
-for (i in 1:61) {
-  if (sum(is.na(allEValueVecs[, i]))>0)
-    print(i)
-}
-
-allEValueVecs[, 8]
-
-firstTimes
-firstTimesFut
 
 # Scenario 1 ----
 # In the order of how the sources are mentioned, but can use randomisation
