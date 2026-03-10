@@ -113,35 +113,37 @@ t.test(variable ~ factor, data = ML2.var[[g]]$cleanDataFilter, var.equal = FALSE
 #############################################################################################################
 ## extended clean data filter and frequentist analysis
 
-extendedCleanDataFilter <- ML2.var[[g]]$cleanDataFilter
-extendedCleanDataFilter$study.order <- merge(ML2.df, extendedCleanDataFilter, by = "uID")$study.order
-# view(extendedCleanDataFilter)
+cleanDataFilter <- ML2.var[[g]]$cleanDataFilter
+variable <- colnames(cleanDataFilter)[2]
+factor <- colnames(cleanDataFilter)[3]
+extendedCleanDataFilter <- merge(cleanDataFilter, ML2.df, by = "uID")[,c("uID",variable,factor,"source")] #inner join
+extendedCleanDataFilter <- remove_degenerate_sources(extendedCleanDataFilter)
+#view(extendedCleanDataFilter)
 
 # THIS IS STUDY-SPECIFFIC
 varEqual <- FALSE
 
-variable <- colnames(extendedCleanDataFilter)[2]
-factor <- colnames(extendedCleanDataFilter)[3]
-frequentist_results <- full_freq_t_test_analysis(extendedCleanDataFilter, variable, factor, var_equal = varEqual)
+frequentist_results <- full_freq_t_test_analysis(extendedCleanDataFilter, var_equal = varEqual)
 #view(frequentist_results)
 
 ##################################################################################################################
 ## sequential analysis
 
 # THIS IS STUDY-SPECIFFIC
-original_study_estimated_effect_size <- 0.5
+original_study_estimated_effect_size <- 0.69
 
-esMinFutility <- 0.7*original_study_estimated_effect_size
-deltaMin <- 0.7*original_study_estimated_effect_size 
-alpha <- 0.1
-betaFutility <- 0.1
+esMinFutility <- original_study_estimated_effect_size
+deltaMin <- original_study_estimated_effect_size 
+alpha <- 0.05
+betaFutility <- 0.05
 
 # permute the rows of ECDF to avoid only sampling one group
+set.seed(1)
 PECDF <- extendedCleanDataFilter[sample(nrow(extendedCleanDataFilter)), ]
 sequential_results_list <- full_seq_t_test_analysis(PECDF, alpha, betaFutility, deltaMin, esMinFutility, varEqual = varEqual)
 #view(sequential_results_list$sequential_results)
-eValueMat <- sequential_results_list$eValueMat
-fValueMat <- sequential_results_list$fValueMat
+eValueMat  <- sequential_results_list$eValueMat
+fValueMat  <- sequential_results_list$fValueMat
 metaEType1 <- sequential_results_list$metaEType1
 metaFType1 <- sequential_results_list$metaFType1
 metaEType2 <- sequential_results_list$metaEType2
@@ -149,8 +151,18 @@ metaFType2 <- sequential_results_list$metaFType2
 metaEType3 <- sequential_results_list$metaEType3
 metaFType3 <- sequential_results_list$metaFType3
 
-#print(log(metaEType3))
-#plot(log(metaEType3), type = 'line')
+worstCaseMetaEType1 <- sequential_results_list$worstCaseMetaEType1
+worstCaseMetaFType1 <- sequential_results_list$worstCaseMetaFType1
+stoppedMetaEType2 <- sequential_results_list$stoppedMetaEType2
+stoppedMetaFType2 <- sequential_results_list$stoppedMetaFType2
+
+#plot(log(stoppedMetaEType2), type = 'l')
+#lines(log(stoppedMetaFType2), col="red")
+
+#plot(log(worstCaseMetaEType1), type = 'l')
+#lines(log(worstCaseMetaFType1), col="red")
+
+
 
 all_results <- list(
   extendedCleanDataFilter = extendedCleanDataFilter,

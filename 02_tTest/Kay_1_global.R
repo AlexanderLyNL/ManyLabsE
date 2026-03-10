@@ -116,35 +116,37 @@ t.test(variable ~ factor, data = ML2.var[[g]]$cleanDataFilter, var.equal = FALSE
 #############################################################################################################
 ## extended clean data filter and frequentist analysis
 
-extendedCleanDataFilter <- ML2.var[[g]]$cleanDataFilter
-extendedCleanDataFilter$study.order <- merge(ML2.df, extendedCleanDataFilter, by = "uID")$study.order
-# view(extendedCleanDataFilter)
+cleanDataFilter <- ML2.var[[g]]$cleanDataFilter
+variable <- colnames(cleanDataFilter)[2]
+factor <- colnames(cleanDataFilter)[3]
+extendedCleanDataFilter <- merge(cleanDataFilter, ML2.df, by = "uID")[,c("uID",variable,factor,"source")] #inner join
+extendedCleanDataFilter <- remove_degenerate_sources(extendedCleanDataFilter)
+#view(extendedCleanDataFilter)
 
 # THIS IS STUDY-SPECIFFIC
 varEqual <- FALSE
 
-variable <- colnames(extendedCleanDataFilter)[2]
-factor <- colnames(extendedCleanDataFilter)[3]
-frequentist_results <- full_freq_t_test_analysis(extendedCleanDataFilter, variable, factor, var_equal = varEqual)
+frequentist_results <- full_freq_t_test_analysis(extendedCleanDataFilter, var_equal = varEqual)
 #view(frequentist_results)
 
 ##################################################################################################################
 ## sequential analysis
 
 # THIS IS STUDY-SPECIFFIC
-original_study_estimated_effect_size <- 0.5
+original_study_estimated_effect_size <- 0.49
 
-esMinFutility <- 0.7*original_study_estimated_effect_size
-deltaMin <- 0.7*original_study_estimated_effect_size 
-alpha <- 0.1
-betaFutility <- 0.1
+esMinFutility <- original_study_estimated_effect_size
+deltaMin <- original_study_estimated_effect_size 
+alpha <- 0.05
+betaFutility <- 0.05
 
 # permute the rows of ECDF to avoid only sampling one group
+set.seed(1)
 PECDF <- extendedCleanDataFilter[sample(nrow(extendedCleanDataFilter)), ]
 sequential_results_list <- full_seq_t_test_analysis(PECDF, alpha, betaFutility, deltaMin, esMinFutility, varEqual = varEqual)
 #view(sequential_results_list$sequential_results)
-eValueMat <- sequential_results_list$eValueMat
-fValueMat <- sequential_results_list$fValueMat
+eValueMat  <- sequential_results_list$eValueMat
+fValueMat  <- sequential_results_list$fValueMat
 metaEType1 <- sequential_results_list$metaEType1
 metaFType1 <- sequential_results_list$metaFType1
 metaEType2 <- sequential_results_list$metaEType2
@@ -152,13 +154,61 @@ metaFType2 <- sequential_results_list$metaFType2
 metaEType3 <- sequential_results_list$metaEType3
 metaFType3 <- sequential_results_list$metaFType3
 
-#print(log(metaEType1))
-#plot(log(metaFType3), type = 'line')
+worstCaseMetaEType1 <- sequential_results_list$worstCaseMetaEType1
+worstCaseMetaFType1 <- sequential_results_list$worstCaseMetaFType1
+stoppedMetaEType2 <- sequential_results_list$stoppedMetaEType2
+stoppedMetaFType2 <- sequential_results_list$stoppedMetaFType2
+
+#plot(metaEType1, type = 'l')
+#lines(metaFType1, col="red")
+
+#plot(metaEType2, type = 'l')
+#lines(log(metaFType2), col="red")
+
+#plot(metaEType3, type = 'l')
+#lines(metaFType3, col="red")
+
+#plot(stoppedMetaEType2, type = 'l')
+#lines(stoppedMetaFType2, col="red")
+
+#plot(worstCaseMetaEType1, type = 'l')
+#lines(worstCaseMetaFType1, col="red")
+
+# ANALYSIS OVER MANY PERMUTATIONS OF THE DATA ORDER
+avgMetaResultsList <- avg_meta_results(PECDF, alpha, betaFutility, deltaMin, esMinFutility, varEqual, n_permutations = 100, meta_alpha = alpha/n_studies, meta_betaFutility = betaFutility/n_studies)
+metaType1StoppingTimes <- avgMetaResultsList$metaType1StoppingTimes
+metaType2StoppingTimes <- avgMetaResultsList$metaType2StoppingTimes
+metaType3StoppingTimes <- avgMetaResultsList$metaType3StoppingTimes
+stoppedMetaType2StoppingTimes <- avgMetaResultsList$stoppedMetaType2StoppingTimes
+
+#print(metaType3StoppingTimes)
+#cat(mean(metaType3StoppingTimes), sd(metaType3StoppingTimes))
+#hist(metaType3StoppingTimes)
+
+#print(stoppedMetaType2StoppingTimes)
+#cat(mean(stoppedMetaType2StoppingTimes), sd(stoppedMetaType2StoppingTimes))
+
+metaEType1Realizations <- avgMetaResultsList$metaEType1Realizations
+metaFType1Realizations <- avgMetaResultsList$metaFType1Realizations
+metaEType2Realizations <- avgMetaResultsList$metaEType2Realizations
+metaFType2Realizations <- avgMetaResultsList$metaFType2Realizations
+metaEType3Realizations <- avgMetaResultsList$metaEType3Realizations
+metaFType3Realizations <- avgMetaResultsList$metaFType3Realizations
+
+#plot(metaEType3Realizations[[2]], type = 'l')
+#lines(metaFType3Realizations[[2]], col="red")
+
+stoppedMetaEType2Realizations <- avgMetaResultsList$stoppedMetaEType2Realizations
+stoppedMetaFType2Realizations <- avgMetaResultsList$stoppedMetaFType2Realizations
+
+#plot(stoppedMetaEType2Realizations[[1]], type = 'l')
+#lines(stoppedMetaFType2Realizations[[1]], col="red")
 
 all_results <- list(
   extendedCleanDataFilter = extendedCleanDataFilter,
   frequentist_results = frequentist_results,
-  sequential_results_list = sequential_results_list
+  sequential_results_list = sequential_results_list,
+  avgMetaResultsList = avgMetaResultsList
 )
 
 # THIS IS STUDY-SPECIFFIC
