@@ -325,13 +325,13 @@ decide.analysis <- function(ML2.key, studies = NA, tp = NA, doAll = FALSE) {
   }
 
   if (is.na(tp[1])) {
-    disp(
-      paste0(
-        "Analyzing global, primary and secondary studies marked '1' in the corrsponding columns of the masteRkey spreadsheet"
-      ),
-      header = FALSE,
-      footer = TRUE
-    )
+    # disp(
+    #   paste0(
+    #     "Analyzing global, primary and secondary studies marked '1' in the corrsponding columns of the masteRkey spreadsheet"
+    #   ),
+    #   header = FALSE,
+    #   footer = TRUE
+    # )
     studiess <- c(
       ML2.key$unique.id[ML2.key$study.global.include[studies] == 1],
       ML2.key$unique.id[ML2.key$study.primary.include[studies] == 1],
@@ -358,11 +358,11 @@ decide.analysis <- function(ML2.key, studies = NA, tp = NA, doAll = FALSE) {
       )
     )
   } else {
-    disp(
-      paste0("Analyzing studies in ", analysis[tp]),
-      header = FALSE,
-      footer = TRUE
-    )
+    # disp(
+    #   paste0("Analyzing studies in ", analysis[tp]),
+    #   header = FALSE,
+    #   footer = TRUE
+    # )
     if (doAll) {
       studiess <- lapply(analysis[tp], function(c) {
         ML2.key$unique.id[ML2.key[, c] >= 0]
