@@ -1,13 +1,25 @@
 # Two-Sided Fisher's Exact Test
 
+### Study Statistics Summary (Original / Global)
+
+| Study | $N$ | $p$-value | $d$ | $\delta$ | Alternative |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **16. Framing** | 181 / 7228 | 7.4e-7 / 1.01e-50 | 1.08 / 0.40 | 1.96 / 0.72 | Greater |
+| **5. Affect & Risk** | 40 / 7218 | 0.0267 / 0.002 | 0.74 / -0.08 | 1.34 / -0.14 | Greater |
+| **11. Trolley 1** | 2646 / 6842 | < 0.001 /  2.2e-16 | 2.50 / 1.35 | 4.53 / 2.44 | Two-sided |
+| **17. Trolley 2** | 2612 / 7923 | < 0.001 / 4.66e-23 | 0.34 / 0.25 | 0.61 / 0.45 | Greater |
+
+For Framing, there is some problem, I got a p=6.72e-51 for the Global.
+Also, the ES in table 2 for original is 1.08 where it's 0.88 in the text.
+
 - By Order: Study questions sequences (we dont care)
 - By Site: Different institutes ('uva' or 'uiuc')
 - Global: Aggregate all data together
 
 log odds ratio and d
 $$
-d = \frac{\text{odds ratio}}{\pi / \sqrt{3}} \\
-\delta = \log(d \cdot \pi / \sqrt{3})
+d = \frac{\delta}{\pi / \sqrt{3}} \\
+\delta = d \cdot \pi / \sqrt{3}
 $$
 
 
@@ -25,9 +37,6 @@ $$
 | **No**    | na - ya         | nb - yb             |       |
 | **Total** | na              | nb                  | n     |
 
-**Original Study**: Z = 5.14, p = 7.4e-7, OR = 4.96, 95% CI [2.55, 9.90]
-
-**Effect size**: $\delta$ = 1.601406
 
 ---
 
@@ -45,13 +54,20 @@ $$
 | **$50**   | na - ya   | nb - yb      |       |
 | **Total** | na        | nb           | n     |
 
-**Original Study**: χ2(1, N=40) = 4.91, p = 0.0267, Kramer φ = 0.35, d = 0.74, 95% CI [<0.001, 1.74].
+**Original Study** (N=40): χ2(1, N=40) = 4.91, p = 0.0267, d = 0.74, $\delta$ = 1.34
 
-**Effect size**: $\delta$ = 0.2943186
+**Gloabl Study** (N=7218): p = 0.002, OR = 0.87, d = -0.08, $\delta$ = -0.14
 
 ---
 
 ## [11. Trolley Dilemma 1 (Hauser et. al. 2007) Scenarios 1+2](../OSFdata/Trolley%20Dilemma%201%20(Hauser%20et%20al.,%202007))
+
+This study compares the **Side Effect** scenario (**Denise**) with the **Greater Good** scenario (**Frank**).
+
+**Sub-analyses (Hauser 1, 2, 3):**
+- **Hauser.1**: Includes **all** participants.
+- **Hauser.2**: Includes only participants who have **previously heard** of the dilemma.
+- **Hauser.3**: Includes only participants who have **never heard** of the dilemma.
 
 **Two-sided**
 the sites (different studies) are column `Source.Secondary`
@@ -66,13 +82,16 @@ the sites (different studies) are column `Source.Secondary`
 | **No**    | na - ya | nb - yb |       |
 | **Total** | na      | nb      | n     |
 
-**Original Study**: χ2(1, N = 2646) = 1615.96, p < 0.001, w = 0.78, d = 2.50, 95% CI [2.22, 2.86]
-
-**Effect size**: $\delta$ = 1.511714
-
 ---
 
 ## [17. Trolley Dilemma 2 (Hauser et. al. 2007) Scenarios 3+4](../OSFdata/Trolley%20Dilemma%202%20(Hauser%20et%20al.,%202007))
+
+This study compares the **Oscar** scenario vs the **Ned** scenario.
+
+**Sub-analyses (Hauser 4, 5, 6):**
+- **Hauser.4**: Includes **all** participants.
+- **Hauser.5**: Includes only participants who have **previously heard** of the dilemma.
+- **Hauser.6**: Includes only participants who have **never heard** of the dilemma.
 
 **One-sided, Greater**
 
@@ -85,10 +104,6 @@ the sites (different studies) are column `Source.Secondary`
 | **Yes**   | ya      | yb      | y1    |
 | **No**    | na - ya | nb - yb |       |
 | **Total** | na      | nb      | n     |
-
-**Original study**: χ2(1, N = 2612) = 72.35, p < 0.001, w = 0.17, d = 0.34, 95% CI [0.26, 0.42].
-
-**Effect size**: -0.4833859
 
 ![Denise](Hauser_Denise.png)
 
