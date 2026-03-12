@@ -15,9 +15,10 @@ source(file.path(project.root, "00_utils", "helpers.R"))
 
 # ANALYSIS INFO ----
 
-study.description      <- 'Moral Cleansing (Zhong & Liljenquist, 2006)'
-analysis.unique.id     <- 65
-analysis.name          <- 'Zhong.1'
+
+study.description      <- 'Position & Power (Giessner & Schubert, 2007)'
+analysis.unique.id     <- 45
+analysis.name          <- 'Giessner.1'
 analysis.type          <- 1
 analysis.type.name     <- 'study_global_include'
 analysis.type.groups   <- 'Source.Global'
@@ -52,14 +53,13 @@ ML2.in <- get.info(ML2.key, colnames(ML2.df), subset.type)
 # Info based on KeyTable information in study.vars, cases.include, site.include, params.NA
 ML2.id <- get.chain(ML2.in)
 
-ML2.id$df
+ML2.df
 
-# Apply the df chain to select relevant subset of variables
+
 
 ML2.df <- ML2.df %>%
-  dplyr::select(2,7,228,229,230,231,232,233,234,235,236,237,805,904,905,906,907,908,909,910,911,912,913,914,915,934,935,938,939,940) %>%
+  dplyr::select(2,7,247,252,257,258,259,260,261,805,904,905,906,907,908,909,910,911,912,913,914,915,938,939,940) %>%
   dplyr::filter(is.character(source))
-
 
 
 # Decide which analyses to run on which groups
@@ -131,6 +131,8 @@ if(length(toRun$studiess)>0){
         ML2.sr[[g]] <- get.sourceData(ML2.id, ML2.df[gID, ], ML2.in)
       }
 
+
+
       # Double-check nMin
       if(nMin1){
         compN  <- ML2.sr[[g]]$N
@@ -143,8 +145,8 @@ if(length(toRun$studiess)>0){
 
       if(all(nMin1,nMin2)){
 
-# To see the function code type:varfun.Zhong.1, or lookup in manylabRs_SOURCE.R
-ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
+# To see the function code type:varfun.Giessner.1, or lookup in manylabRs_SOURCE.R
+ML2.var[[g]] <- varfun.Giessner.1(ML2.sr[[g]])
 
 
         # Check equal variance assumption
@@ -158,7 +160,7 @@ ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
         stat.params <<- ML2.in$stat.params
 
 
-stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = Ethical, y = Unethical, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
+stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = Long, y = Short, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
 
 
         # Check for errors and warnings
@@ -393,17 +395,49 @@ dplyr::summarise(
 
 # Freq test ------
 
-ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
+# ML2.id$vars
+varNames <- c("geis.dv_1", "geis.dv_2", "geis.dv_3", "geis.dv_4", "geis.dv_5")
+
+rawDat <- ML2.rawdata
+
+longIndex <- which(!is.na(rawDat$geis1.1))
+
+for (var in varNames) {
+  longIndex <- setdiff(longIndex, which(is.na(rawDat[[var]])))
+}
+
+shortIndex <- which(!is.na(rawDat$geis2.1))
+
+for (var in varNames) {
+  shortIndex <- setdiff(shortIndex, which(is.na(rawDat[[var]])))
+}
+
+longDat <- rawDat[longIndex, ]
+shortDat <- rawDat[shortIndex, ]
+
+
+longVar <- rowMeans(longDat[, varNames])
+shortVar <- rowMeans(shortDat[, varNames])
+
+length(c(longVar, shortVar))
+
+rawDat$variable <- 1
+rawDat$factor <- "1"
+
+rawDat[longIndex, "variable"] <- longVar
+rawDat[shortIndex, "variable"] <- shortVar
+rawDat[longIndex, "factor"] <- "Long"
+rawDat[shortIndex, "factor"] <- "Short"
+
+rawDat$uID
+
+cleanDat <- rawDat[c(longIndex, shortIndex), c("uID", "variable", "factor")]
+
 
 stat.params <<- ML2.in$stat.params
+freqRes <- t.test(variable ~ factor, data = cleanDat, var.equal = stat.params$var.equal)
 
-
-freqRes <- t.test(variable ~ factor, data = ML2.var[[g]]$cleanDataFilter, var.equal = stat.params$var.equal)
-
-dat <- ML2.var[[g]]$cleanDataFilter
-
-
-studySummary <- dat %>%
+studySummary <- cleanDat %>%
   group_by(factor) %>%
   summarise(
     n = n(),
@@ -421,10 +455,11 @@ freqRes$statistic
 freqRes$p.value
 freqRes$statistic*sqrt(sum(studySummary$n)/prod(studySummary$n))
 
+# Alexander ----
 dat <- addSources(ML2.var, ML2.df)
-# save(dat, stat.params, file="zhong.RData")
+# stat.params <<- ML2.in$stat.params
+# save(dat, stat.params, file="giessner.RData")
 
-# Alexander -----
 dat <- checkUniqueIds(dat)
 tempRes <- removeOneConditionSources(dat)
 
@@ -440,7 +475,7 @@ if (stat.params$alternative=="two.sided")
 # Here -------
 alpha <- 0.05
 betaFutility <- alpha
-deltaMin <- 1.02
+deltaMin <- 0.48
 varEqual <- stat.params$var.equal
 power <- 0.8
 alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
@@ -480,7 +515,7 @@ mean(res1$totalStoppingTimes)
 sd(res1$totalStoppingTimes)
 
 # Scenario 2-----
-res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3L)
+res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3)
 
 logMetaE<- rowSums(log(res2$eValues))
 mean(logMetaE)
@@ -495,6 +530,7 @@ sd(res2$alternativeProportion)
 
 mean(res2$futilityProportion)
 sd(res2$futilityProportion)
+
 
 mean(res2$totalStoppingTimes)
 sd(res2$totalStoppingTimes)
@@ -520,6 +556,4 @@ sd(res3$futilityProportion)
 mean(res3$totalStoppingTimes)
 sd(res3$totalStoppingTimes)
 
-# save(res1, res2, res3, file="zhong1Result.RData")
-
-
+# save(res1, res2, res3, file="giessner1Result.RData")

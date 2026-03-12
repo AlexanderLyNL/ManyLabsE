@@ -15,9 +15,10 @@ source(file.path(project.root, "00_utils", "helpers.R"))
 
 # ANALYSIS INFO ----
 
-study.description      <- 'Moral Cleansing (Zhong & Liljenquist, 2006)'
-analysis.unique.id     <- 65
-analysis.name          <- 'Zhong.1'
+
+study.description      <- 'Moral Typecasting (Gray & Wegner, 2009)'
+analysis.unique.id     <- 62
+analysis.name          <- 'Gray.1'
 analysis.type          <- 1
 analysis.type.name     <- 'study_global_include'
 analysis.type.groups   <- 'Source.Global'
@@ -26,6 +27,7 @@ Nmin.cond              <- 15
 subset                 <- 'all'
 subset.type <- "all"
 saveAll <- FALSE
+
 
 # GET LOOKUP TABLES ----
 ML2.key <- rio::import(file.path(project.root, "00_data", "ML2_KeyTable.csv"))
@@ -54,13 +56,10 @@ ML2.id <- get.chain(ML2.in)
 
 ML2.id$df
 
-# Apply the df chain to select relevant subset of variables
 
-ML2.df <- ML2.df %>%
-  dplyr::select(2,7,228,229,230,231,232,233,234,235,236,237,805,904,905,906,907,908,909,910,911,912,913,914,915,934,935,938,939,940) %>%
+ML2.df  <- ML2.df %>%
+  dplyr::select(2,7,641,649,805,904,905,906,907,908,909,910,911,912,913,914,915,938,939,940) %>%
   dplyr::filter(is.character(source))
-
-
 
 # Decide which analyses to run on which groups
 toRun  <- decide.analysis(ML2.key, analysis.unique.id, analysis.type, doAll = TRUE)
@@ -143,8 +142,8 @@ if(length(toRun$studiess)>0){
 
       if(all(nMin1,nMin2)){
 
-# To see the function code type:varfun.Zhong.1, or lookup in manylabRs_SOURCE.R
-ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
+        # To see the function code type:varfun.Gray.1, or lookup in manylabRs_SOURCE.R
+        ML2.var[[g]] <- varfun.Gray.1(ML2.sr[[g]])
 
 
         # Check equal variance assumption
@@ -158,7 +157,7 @@ ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
         stat.params <<- ML2.in$stat.params
 
 
-stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = Ethical, y = Unethical, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
+        stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = adultHbaby, y = babyHadult, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
 
 
         # Check for errors and warnings
@@ -215,28 +214,28 @@ stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = Ethical, y = Unethical, co
 
 
 
-SourceInfo <- raw.df[[g]] %>% dplyr::filter(case.include) %>%
-dplyr::summarise(
-  N.sources.global    = length(unique(Source.Global)),
-  N.sources.primary   = length(unique(Source.Primary)),
-  N.sources.secondary = length(unique(Source.Secondary)),
-  N.countries         = length(unique(Country)),
-  N.locations         = length(unique(Location)),
-  N.languages         = length(unique(Language)),
-  Pct.WEIRD           = mean(Weird, na.rm=TRUE)*100,
-  Tbl.Execution       = paste0(capture.output(table(Execution)),collapse='\n'),
-  Tbl.subjectpool     = paste0(capture.output(table(SubjectPool)),collapse='\n'),
-  Tbl.setting       = paste0(capture.output(table(Setting)),collapse='\n'),
-  Tbl.Tablet        = paste0(capture.output(table(Tablet)),collapse='\n'),
-  Tbl.Pencil        = paste0(capture.output(table(Pencil)),collapse='\n'),
-  N.studyorders1    = length(unique(StudyOrderN)),
-  N.IDiffOrderN     = length(unique(IDiffOrderN)),
-  N.uIDs            = length(unique(uID)),
-  N.studyorders2    = length(unique(study.order)),
-  Tbl.analysistype  = paste0(capture.output(table(analysis.type)),collapse='\n'),
-  Tbl.subset        = paste0(capture.output(table(subset)),collapse='\n'),
-  N.cases.included  = sum(case.include, na.rm=TRUE),
-  N.cases.excluded  = sum(case.include==FALSE,na.rm=TRUE))
+          SourceInfo <- raw.df[[g]] %>% dplyr::filter(case.include) %>%
+            dplyr::summarise(
+              N.sources.global    = length(unique(Source.Global)),
+              N.sources.primary   = length(unique(Source.Primary)),
+              N.sources.secondary = length(unique(Source.Secondary)),
+              N.countries         = length(unique(Country)),
+              N.locations         = length(unique(Location)),
+              N.languages         = length(unique(Language)),
+              Pct.WEIRD           = mean(Weird, na.rm=TRUE)*100,
+              Tbl.Execution       = paste0(capture.output(table(Execution)),collapse='\n'),
+              Tbl.subjectpool     = paste0(capture.output(table(SubjectPool)),collapse='\n'),
+              Tbl.setting       = paste0(capture.output(table(Setting)),collapse='\n'),
+              Tbl.Tablet        = paste0(capture.output(table(Tablet)),collapse='\n'),
+              Tbl.Pencil        = paste0(capture.output(table(Pencil)),collapse='\n'),
+              N.studyorders1    = length(unique(StudyOrderN)),
+              N.IDiffOrderN     = length(unique(IDiffOrderN)),
+              N.uIDs            = length(unique(uID)),
+              N.studyorders2    = length(unique(study.order)),
+              Tbl.analysistype  = paste0(capture.output(table(analysis.type)),collapse='\n'),
+              Tbl.subset        = paste0(capture.output(table(subset)),collapse='\n'),
+              N.cases.included  = sum(case.include, na.rm=TRUE),
+              N.cases.excluded  = sum(case.include==FALSE,na.rm=TRUE))
 
 
 
@@ -393,7 +392,7 @@ dplyr::summarise(
 
 # Freq test ------
 
-ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
+ML2.var[[g]] <- varfun.Gray.1(ML2.sr[[g]])
 
 stat.params <<- ML2.in$stat.params
 
@@ -411,8 +410,6 @@ studySummary <- dat %>%
     sd = sd(variable, na.rm=TRUE)
   )
 
-
-
 sum(studySummary$n)
 studySummary$mean
 studySummary$sd
@@ -421,40 +418,33 @@ freqRes$statistic
 freqRes$p.value
 freqRes$statistic*sqrt(sum(studySummary$n)/prod(studySummary$n))
 
+# Alexander --------
 dat <- addSources(ML2.var, ML2.df)
-# save(dat, stat.params, file="zhong.RData")
+# save(dat, stat.params, file="gray.RData")
 
-# Alexander -----
 dat <- checkUniqueIds(dat)
 tempRes <- removeOneConditionSources(dat)
 
 allSources <- tempRes$allSources
 sampleSize <- tempRes$sampleSize
 
-dat <- dat[dat$source %in% allSources, ]
-
-if (stat.params$alternative=="two.sided")
-  stat.params$alternative <- "twoSided"
-
-
 # Here -------
 alpha <- 0.05
 betaFutility <- alpha
-deltaMin <- 1.02
+deltaMin <- 0.8
 varEqual <- stat.params$var.equal
-power <- 0.8
 alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
 
-designObj <- designSaviT(alpha=alpha, power=power,
-                         deltaMin=deltaMin, futility=TRUE,
-                         betaFutility=betaFutility,
+
+designObj <- designSaviT(alpha=alpha, power=0.8,
+                         deltaMin=deltaMin, futility=TRUE, betaFutility=betaFutility,
                          varEqual=varEqual, testType="twoSample",
                          alternative=alternative)
 
 # Scenario 1 ----
 res1 <- scenario1T(dat=dat, allSources=allSources, designObj=designObj,
                    nuMin=3, alpha=alpha, betaFutility=betaFutility,
-                   nSim=1e3, alternative=alternative)
+                   nSim=1e3)
 
 mean(res1$eValues >= 1/alpha)
 mean(res1$eValuesFut <= betaFutility)
@@ -476,11 +466,17 @@ sd(res1$logMetaE)
 mean(res1$logMetaEFut)
 sd(res1$logMetaEFut)
 
+# mean(res1$logMetaE >= log(1/alpha))
+# mean(res1$logMetaEFut <= log(betaFutility))
+
+mean(res1$stopDecision==1)
+mean(res1$stopDecision==-1)
+
 mean(res1$totalStoppingTimes)
 sd(res1$totalStoppingTimes)
 
 # Scenario 2-----
-res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3L)
+res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3)
 
 logMetaE<- rowSums(log(res2$eValues))
 mean(logMetaE)
@@ -503,7 +499,7 @@ sd(res2$totalStoppingTimes)
 
 res3 <- scenario3T(dat=dat, allSources=allSources, designObj=designObj,
                    alpha=alpha, betaFutility=betaFutility,
-                   nuMin=nuMin, nSim=1e3L)
+                   nuMin=nuMin, nSim=1e3L, wantCi=wantCi)
 
 mean(res3$logMetaE)
 sd(res3$logMetaE)
@@ -520,6 +516,4 @@ sd(res3$futilityProportion)
 mean(res3$totalStoppingTimes)
 sd(res3$totalStoppingTimes)
 
-# save(res1, res2, res3, file="zhong1Result.RData")
-
-
+# save(res1, res2, res3, file="gray1Result.RData")

@@ -2,12 +2,27 @@ library(devtools)
 library(plyr)
 library(rio)
 library(tidyverse)
+library(reshape2)
+library(stats)
+# rm(list = ls())
 
+
+
+# setwd("/home/areyerol/Bureau/futility/ManyLabsE/03_zTest")
+
+# library(safestats)
+# repo.path <- "/home/areyerol/Bureau/git/safestats-futility88"
+# load_all(repo.path)
+
+
+
+sourcePath <- if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("are", "Are")) "Bureau/futility"
+myWd <-  if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("are", "Are")) "/home/areyerol/Bureau/futility/ManyLabsE/03_zTest" #"~/Desktop/git/manyLabsE/02_tTest/"
 
 sourcePath <- if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "/Desktop/git/"
 myWd <-  if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "~/Desktop/git/manyLabsE/02_tTest/"
 
-project.root <- file.path("~", sourcePath, "manyLabsE")
+project.root <- file.path("~", sourcePath, "ManyLabsE")
 OSFdata.root <- file.path(project.root, "OSFdata")
 
 source(file.path(project.root, "00_utils", "WYQ_manylabRs_SOURCE.R"))
@@ -15,50 +30,90 @@ source(file.path(project.root, "00_utils", "helpers.R"))
 
 # ANALYSIS INFO ----
 
-study.description      <- 'Moral Cleansing (Zhong & Liljenquist, 2006)'
-analysis.unique.id     <- 65
-analysis.name          <- 'Zhong.1'
+
+study.description      <- 'Choosing or Rejecting (Shafir, 1993)'
+analysis.unique.id     <- 74
+analysis.name          <- 'Shafir.1'
 analysis.type          <- 1
 analysis.type.name     <- 'study_global_include'
 analysis.type.groups   <- 'Source.Global'
 Nmin.raw               <- 30
 Nmin.cond              <- 15
 subset                 <- 'all'
-subset.type <- "all"
-saveAll <- FALSE
+onlineTables           <- TRUE
+staticData             <- TRUE
+saveAll                <- FALSE
+overWrite              <- FALSE
+#OSFdata.root           <- file.path('~','OSFdata')
+analysis.root          <- file.path(OSFdata.root,study.description,analysis.name,'Global')
+outdir                 <- list(Data = file.path(analysis.root,'Data'), Results = file.path(analysis.root,'Results'))
+
+
+# This function will be used to change the raw dataset to a dataset ready for analysis
+
+varfun.Shafir.1
+
+
+if(dplyr::between(analysis.type,2,3)){subset <- "all"}
 
 # GET LOOKUP TABLES ----
-ML2.key <- rio::import(file.path(project.root, "00_data", "ML2_KeyTable.csv"))
-ML2.key <- ML2.key[!is.na(ML2.key$unique.id) & ML2.key$unique.id == analysis.unique.id, ]
-SourceInfoTable <- rio::import(file.path(OSFdata.root, "!!KeyTables", "ML2_SourceInfo - ML2_SourceInfo.csv"))
 
-# Get the correct slate according to info in ML2.key['study.slate']
-if (ML2.key$study.slate == 1) {
-  ML2.df <- rio::import(file.path(OSFdata.root, "!!RawData", "ML2_S1.csv"))
+if(onlineTables){
+  # Get the Keytable with analysis information
+  ML2.key <- get.GoogleSheet(data='ML2masteRkey')$df
+  ML2.key <- ML2.key[!is.na(ML2.key$unique.id)&ML2.key$unique.id==analysis.unique.id,]
+
+  # Get info about the sites
+  SourceInfoTable    <- get.GoogleSheet(url = "https://docs.google.com/spreadsheets/d/1Qn_kVkVGwffBAmhAbpgrTjdxKLP1bb2chHjBMVyGl1s/pub?gid=1435507167&single=true&output=csv")$df
 } else {
-  ML2.df <- rio::import(file.path(OSFdata.root, "!!RawData", "ML2_S2.csv"))
+  # Get the Keytable with analysis information
+  ML2.key <- rio::import(file.path(OSFdata.root,"!!KeyTables","ML2_KeyTable.csv"))
+  ML2.key <- ML2.key[!is.na(ML2.key$unique.id)&ML2.key$unique.id==analysis.unique.id,]
+
+  # Get info about the sites
+  SourceInfoTable    <- rio::import(file.path(OSFdata.root,"!!KeyTables","ML2_SourceInfoTable.csv"))
 }
 
 
 
+
+# GET DATA ----
+
+if(!staticData){
+  # CANNOT TEST UNTIL OSF DATA ARE PUBLIC
+  # Get the correct slate according to info in ML2.key['study.slate']
+  if(ML2.key[study,'study.slate'] == 1){
+    data <- osfr::download_files(id = 'cwjp3', path =  getwd())
+  } else {
+    data <- osfr::download_files(id = 'jg9hc', path =  getwd())
+  }
+  ML2.df <- rio::import(data)
+  disp(paste("Downloaded data from OSF"), header = FALSE, footer = FALSE)
+} else {
+  # Get the correct slate according to info in ML2.key['study.slate']
+  if(ML2.key$study.slate == 1){
+    ML2.df <- rio::import(file.path(OSFdata.root,"!!RawData","ML2_Slate1.csv"))
+  } else {
+    ML2.df <- rio::import(file.path(OSFdata.root,"!!RawData","ML2_Slate2.csv"))
+  }
+}
+
 # PREPARE DATA & OUTPUT ----
+
 # Add a unique ID
-ML2.df$uID <- seq(1, nrow(ML2.df))
+ML2.df$uID = seq(1, nrow(ML2.df))
 
 # Get info to create a dataset for the current study
-ML2.in <- get.info(ML2.key, colnames(ML2.df), subset.type)
+# keytable <- ML2.key
+ML2.in <- get.info(ML2.key, colnames(ML2.df), subset)
 
 # Generate chain to select variables for the data frame and create a filter chain for the variables to use for analysis
 # Info based on KeyTable information in study.vars, cases.include, site.include, params.NA
 ML2.id <- get.chain(ML2.in)
 
-ML2.id$df
-
 # Apply the df chain to select relevant subset of variables
 
-ML2.df <- ML2.df %>%
-  dplyr::select(2,7,228,229,230,231,232,233,234,235,236,237,805,904,905,906,907,908,909,910,911,912,913,914,915,934,935,938,939,940) %>%
-  dplyr::filter(is.character(source))
+ML2.df <- ML2.df  %>% dplyr::select(1,6,285,290,804,903,904,905,906,907,908,909,910,911,912,913,914,937,938,939) %>% dplyr::filter(is.character(source))
 
 
 
@@ -143,8 +198,10 @@ if(length(toRun$studiess)>0){
 
       if(all(nMin1,nMin2)){
 
-# To see the function code type:varfun.Zhong.1, or lookup in manylabRs_SOURCE.R
-ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
+        # To see the function code type:varfun.Shafir.1, or lookup in manylabRs_SOURCE.R
+        ML2.var[[g]] <- varfun.Shafir.1(ML2.sr[[g]])
+
+
 
 
         # Check equal variance assumption
@@ -158,7 +215,7 @@ ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
         stat.params <<- ML2.in$stat.params
 
 
-stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = Ethical, y = Unethical, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
+        stat.test   <- try.CATCH(with(ML2.var[[g]],z.test(x = ParentB, pi = .5, N = sum(N, na.rm=TRUE), proportion = TRUE, alternative = stat.params$alternative)))
 
 
         # Check for errors and warnings
@@ -215,28 +272,28 @@ stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = Ethical, y = Unethical, co
 
 
 
-SourceInfo <- raw.df[[g]] %>% dplyr::filter(case.include) %>%
-dplyr::summarise(
-  N.sources.global    = length(unique(Source.Global)),
-  N.sources.primary   = length(unique(Source.Primary)),
-  N.sources.secondary = length(unique(Source.Secondary)),
-  N.countries         = length(unique(Country)),
-  N.locations         = length(unique(Location)),
-  N.languages         = length(unique(Language)),
-  Pct.WEIRD           = mean(Weird, na.rm=TRUE)*100,
-  Tbl.Execution       = paste0(capture.output(table(Execution)),collapse='\n'),
-  Tbl.subjectpool     = paste0(capture.output(table(SubjectPool)),collapse='\n'),
-  Tbl.setting       = paste0(capture.output(table(Setting)),collapse='\n'),
-  Tbl.Tablet        = paste0(capture.output(table(Tablet)),collapse='\n'),
-  Tbl.Pencil        = paste0(capture.output(table(Pencil)),collapse='\n'),
-  N.studyorders1    = length(unique(StudyOrderN)),
-  N.IDiffOrderN     = length(unique(IDiffOrderN)),
-  N.uIDs            = length(unique(uID)),
-  N.studyorders2    = length(unique(study.order)),
-  Tbl.analysistype  = paste0(capture.output(table(analysis.type)),collapse='\n'),
-  Tbl.subset        = paste0(capture.output(table(subset)),collapse='\n'),
-  N.cases.included  = sum(case.include, na.rm=TRUE),
-  N.cases.excluded  = sum(case.include==FALSE,na.rm=TRUE))
+          SourceInfo <- raw.df[[g]] %>% dplyr::filter(case.include) %>%
+            dplyr::summarise(
+              N.sources.global    = length(unique(Source.Global)),
+              N.sources.primary   = length(unique(Source.Primary)),
+              N.sources.secondary = length(unique(Source.Secondary)),
+              N.countries         = length(unique(Country)),
+              N.locations         = length(unique(Location)),
+              N.languages         = length(unique(Language)),
+              Pct.WEIRD           = mean(Weird, na.rm=TRUE)*100,
+              Tbl.Execution       = paste0(capture.output(table(Execution)),collapse='\n'),
+              Tbl.subjectpool     = paste0(capture.output(table(SubjectPool)),collapse='\n'),
+              Tbl.setting       = paste0(capture.output(table(Setting)),collapse='\n'),
+              Tbl.Tablet        = paste0(capture.output(table(Tablet)),collapse='\n'),
+              Tbl.Pencil        = paste0(capture.output(table(Pencil)),collapse='\n'),
+              N.studyorders1    = length(unique(StudyOrderN)),
+              N.IDiffOrderN     = length(unique(IDiffOrderN)),
+              N.uIDs            = length(unique(uID)),
+              N.studyorders2    = length(unique(study.order)),
+              Tbl.analysistype  = paste0(capture.output(table(analysis.type)),collapse='\n'),
+              Tbl.subset        = paste0(capture.output(table(subset)),collapse='\n'),
+              N.cases.included  = sum(case.include, na.rm=TRUE),
+              N.cases.excluded  = sum(case.include==FALSE,na.rm=TRUE))
 
 
 
@@ -391,135 +448,288 @@ dplyr::summarise(
   }
 }
 
-# Freq test ------
 
-ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
-
-stat.params <<- ML2.in$stat.params
-
-
-freqRes <- t.test(variable ~ factor, data = ML2.var[[g]]$cleanDataFilter, var.equal = stat.params$var.equal)
-
-dat <- ML2.var[[g]]$cleanDataFilter
-
-
-studySummary <- dat %>%
-  group_by(factor) %>%
-  summarise(
-    n = n(),
-    mean = mean(variable, na.rm = TRUE),
-    sd = sd(variable, na.rm=TRUE)
-  )
-
-
-
-sum(studySummary$n)
-studySummary$mean
-studySummary$sd
-
-freqRes$statistic
-freqRes$p.value
-freqRes$statistic*sqrt(sum(studySummary$n)/prod(studySummary$n))
-
-dat <- addSources(ML2.var, ML2.df)
-# save(dat, stat.params, file="zhong.RData")
-
-# Alexander -----
+# Alexander -------
+dat <- addUniqueIds(ML2.var, ML2.df)
 dat <- checkUniqueIds(dat)
-tempRes <- removeOneConditionSources(dat)
-
-allSources <- tempRes$allSources
-sampleSize <- tempRes$sampleSize
-
-dat <- dat[dat$source %in% allSources, ]
-
-if (stat.params$alternative=="two.sided")
-  stat.params$alternative <- "twoSided"
 
 
 # Here -------
 alpha <- 0.05
-betaFutility <- alpha
-deltaMin <- 1.02
-varEqual <- stat.params$var.equal
-power <- 0.8
-alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
+betaFutility <- 0.2
 
-designObj <- designSaviT(alpha=alpha, power=power,
-                         deltaMin=deltaMin, futility=TRUE,
-                         betaFutility=betaFutility,
-                         varEqual=varEqual, testType="twoSample",
-                         alternative=alternative)
+count <- as.integer(dat$variable1=="Parent B")
+dat$count <- count
+
+datAward <- dat[dat$variable2=="Award", ]
+datDeny <- dat[dat$variable2=="Deny", ]
+
+meansAward <- datAward %>% group_by(source) %>%
+  summarise(mean=mean(count, na.rm=TRUE))
+
+meansDeny <- datDeny %>% group_by(source) %>%
+  summarise(mean=mean(count, na.rm=TRUE))
+
+
+allMeans <- (meansAward$mean+meansDeny$mean)/2
+
+studySummary <- dat %>%
+  group_by(source) %>%
+  summarise(
+    n = n(),
+    mean = mean(count, na.rm = TRUE),
+    se = sqrt(mean * (1 - mean) / n),   # binomial SE
+    lower = mean - 1.96 * se,
+    upper = mean + 1.96 * se
+  )
+
+studySummary$mean <- allMeans
+maxN <- max(studySummary$n)
+
+#
+# stat.params <<- ML2.in$stat.params
+# stat.test   <- try.CATCH(with(ML2.var[[g]],
+#                               z.test(x = ParentB, pi = .5,
+#                                      N = sum(N, na.rm=TRUE),
+#                                      proportion = TRUE,
+#                                      alternative = stat.params$alternative)))
+#
+#
+# for (g in unique(dat$source)){
+#   print(sum(dat$count[dat$source==g])/sum(dat$source==g))
+# }
+#
+# library(dplyr)
+# library(ggplot2)
+#
+# study_summary <- dat %>%
+#   group_by(source) %>%
+#   summarise(
+#     n = n(),
+#     mean = mean(variable1_binary, na.rm = TRUE),
+#     se = sqrt(mean * (1 - mean) / n),   # binomial SE
+#     lower = mean - 1.96 * se,
+#     upper = mean + 1.96 * se
+#   )
+# ggplot(study_summary,
+#        aes(x = reorder(source, mean), y = mean)) +
+#   geom_point(size = 2) +
+#   geom_errorbar(aes(ymin = lower, ymax = upper),
+#                 width = 0.2, alpha = 0.6) +
+#   geom_hline(yintercept = 0.5,
+#              linetype = "dashed", color = "red") +
+#   coord_flip() +
+#   labs(
+#     x = "Study",
+#     y = "Proportion (Mean of Binary Variable)",
+#     title = "Study-Level Proportions with 95% Confidence Intervals"
+#   ) +
+#   theme_minimal()
+#
+#
+# library(meta)
+#
+# m <- metagen(
+#
+#   TE = study_summary$mean,
+#
+#   seTE = study_summary$se,
+#
+#   studlab = study_summary$source
+#
+# )
+#
+# forest(m) # forest plot
+#
+# funnel(m) # funnel plot
+#
+#
+
+
+
+
+
+
+# 2*asin(sqrt((.64+.55)/2))-2*asin(sqrt(.5))
+
+# Original study: Lower bound of effect size found in the original study
+
+binomDiff <- ((.64+.55)/2-0.5)
+
+deltaMin <- sqrt(4*binomDiff^2/(1-binomDiff^2))
+
+designObj <- designSaviZ(
+  meanDiffMin=binomDiff, beta=0.2,
+  testType="oneSample", sigma = 0.5,
+  alternative="greater", seed=5,
+  futility = TRUE)
+
+# designObj <- designSaviZ(meanDiffMin=deltaMin, beta=0.2,
+#                          testType="oneSample", sigma = 0.5,
+#                          alternative="twoSided", seed=5,
+#                          futility = TRUE)
+
+seVec <- sqrt(0.5*(1-0.5)/studySummary$n)
+
+# seVec <- sqrt(studySummary$mean*(1-studySummary$mean)/studySummary$n)
+zStat <- (studySummary$mean-0.5)/seVec
+
+z.test
+
+eValueFutVec <- eValueVec <- zStat
+
+for (i in seq_along(eValueVec)) {
+  tempRes <- saviZTestStat(
+    z=zStat[i], n1=studySummary$n[i],
+    parameter=designObj$parameter,
+    alternative=designObj$alternative,
+    sigma=designObj$sigma,
+    eType=designObj$eType)
+
+  eValueVec[i] <- tempRes$eValue
+
+  tempRes <- saviFutilityZStat(
+    z=zStat[i], n1=studySummary$n[i],
+    parameter=designObj$futilityResult$parameter,
+    alternative=designObj$alternative,
+    sigma=designObj$sigma)
+
+  eValueFutVec[i] <- tempRes$eValue
+}
+
+
+eValueVec > 1/alpha
+eValueFutVec < betaFutility
 
 # Scenario 1 ----
-res1 <- scenario1T(dat=dat, allSources=allSources, designObj=designObj,
-                   nuMin=3, alpha=alpha, betaFutility=betaFutility,
-                   nSim=1e3, alternative=alternative)
+#
+eMeta <- exp(cumsum(log(eValueVec)))
+eFutMeta <- exp(cumsum(log(eValueFutVec)))
 
-mean(res1$eValues >= 1/alpha)
-mean(res1$eValuesFut <= betaFutility)
+designObj$parameter
+designObj$futilityResult$parameter
+binomDiff
 
-res1$nStudiesAlternativeWorstCase
-res1$nStudiesFutilityWorstCase
+plot(eMeta, type="l", log="y")
+lines(eFutMeta, col="red")
 
-res1$nSamplesAlternativeWorstCase
-res1$nSamplesFutilityWorstCase
+eMetaAverage <- cumsum(eValueVec)/(1:length(eValueVec))
+eFutMetaAverage <- cumsum(eValueFutVec)/(1:length(eValueFutVec))
 
-mean(res1$stopDecision==1)
-mean(res1$stopDecision==-1)
+plot(eMetaAverage, type="l", log="y")
+lines(eFutMetaAverage, col="red")
 
-mean(res1$nStudies)
+which(eMeta > 1/alpha)
+which(eMetaAverage > 1/alpha)
 
-mean(res1$logMetaE)
-sd(res1$logMetaE)
+which(eFutMeta < betaFutility)
+which(eFutMetaAverage < betaFutility)
 
-mean(res1$logMetaEFut)
-sd(res1$logMetaEFut)
+# Scenario 2 ----
+# Result containers
+#   General data set attributes
 
-mean(res1$totalStoppingTimes)
-sd(res1$totalStoppingTimes)
+allSources <- unique(dat$source)
+numeric(length(allSources))
 
-# Scenario 2-----
-res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3L)
-
-logMetaE<- rowSums(log(res2$eValues))
-mean(logMetaE)
-sd(logMetaE)
-
-logMetaEFut <- rowSums(log(res2$eValuesFut))
-mean(logMetaEFut)
-sd(logMetaEFut)
-
-mean(res2$alternativeProportion)
-sd(res2$alternativeProportion)
-
-mean(res2$futilityProportion)
-sd(res2$futilityProportion)
-
-mean(res2$totalStoppingTimes)
-sd(res2$totalStoppingTimes)
-
-#Scenario 3 ------
-
-res3 <- scenario3T(dat=dat, allSources=allSources, designObj=designObj,
-                   alpha=alpha, betaFutility=betaFutility,
-                   nuMin=nuMin, nSim=1e3L)
-
-mean(res3$logMetaE)
-sd(res3$logMetaE)
-
-mean(res3$logMetaEFut)
-sd(res3$logMetaEFut)
-
-mean(res3$alternativeProportion)
-sd(res3$alternativeProportion)
-
-mean(res3$futilityProportion)
-sd(res3$futilityProportion)
-
-mean(res3$totalStoppingTimes)
-sd(res3$totalStoppingTimes)
-
-# save(res1, res2, res3, file="zhong1Result.RData")
+nVec  <- firstTimes <- eValues <- numeric(length(allSources))
+nFutVec <- firstTimesFut <- eValuesFut <- numeric(length(allSources))
 
 
+allEValueVecs <- matrix(nrow=maxN,
+                        ncol=length(allSources))
+
+allEValueFutVecs <- allEValueVecs
+
+
+# Analyse data for each source
+# loop start -----
+for (i in 1:length(allSources)) {
+  someDat <- dat[dat$source==allSources[i], ]
+
+  nTemp <- dim(someDat)[1]
+
+  set.seed(i)
+  someOrder <- sample(someDat$uID, size=nTemp)
+
+  nAward <- 0
+  nDeny <- 0
+
+  xAward <- 0
+  xDeny <- 0
+
+  for (j in seq_along(someOrder)) {
+    idN <- someOrder[j]
+
+    someRow <- someDat[someDat$uID==idN, ]
+
+    if (someRow$variable2=="Award") {
+      nAward <- nAward+1
+      xAward <- someRow$count+xAward
+    } else if (someRow$variable2=="Deny") {
+      nDeny <- nDeny+1
+      xDeny <- someRow$count+xDeny
+    }
+
+    if (nAward <= 2 || nDeny <= 2) {
+      allEValueVecs[j, i] <- 1
+      allEValueFutVecs[j, i] <- 1
+    } else {
+      meanAward <- xAward/nAward
+      meanDeny <- xDeny/nDeny
+
+      obsMeanDiff <- (meanAward+meanDeny)/2-0.5
+
+      nNow <- nAward+nDeny
+
+      seNow <- sqrt(0.5*(1-0.5)/nNow)
+      zNow <- obsMeanDiff/seNow
+
+      tempRes <- saviZTestStat(z=zNow, n1=nNow,
+                               parameter=designObj$parameter,
+                               alternative=designObj$alternative,
+                               sigma=designObj$sigma,
+                               eType=designObj$eType)
+
+      allEValueVecs[j, i] <- tempRes$eValue
+
+      tempRes <- saviFutilityZStat(z=zNow, n1=nNow,
+                                   parameter=designObj$futilityResult$parameter,
+                                   alternative=designObj$alternative,
+                                   sigma=designObj$sigma)
+
+      allEValueFutVecs[j, i] <- tempRes$eValue
+    }
+  }
+
+  nRemaining <- maxN - nTemp
+
+  if (nRemaining > 0) {
+    allEValueVecs[(nTemp+1):maxN, i] <- allEValueVecs[nTemp, i]
+    allEValueFutVecs[(nTemp+1):maxN, i] <- allEValueFutVecs[nTemp, i]
+  }
+
+  firstTimes[i] <- min(which(allEValueVecs[, i] >= 1/alpha))
+  firstTimesFut[i] <- min(which(allEValueFutVecs[, i] <= betaFutility))
+}
+# loop end ----
+firstTimes
+firstTimesFut
+
+eMeta <- exp(rowSums(log(allEValueVecs)))
+eFutMeta <- exp(rowSums(log(allEValueFutVecs)))
+
+plot(eMeta, type="l", log="y")
+lines(eFutMeta, col="red")
+
+eMetaAverage <- rowMeans(allEValueVecs)
+eFutMetaAverage <- rowMeans(allEValueFutVecs)
+
+plot(eMetaAverage, type="l", log="y")
+lines(eFutMetaAverage, col="red")
+
+which(eMeta >= 1/alpha)
+which(eMetaAverage > 1/alpha)
+
+which(eFutMeta < betaFutility)
+which(eFutMetaAverage < betaFutility)

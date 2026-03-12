@@ -15,9 +15,9 @@ source(file.path(project.root, "00_utils", "helpers.R"))
 
 # ANALYSIS INFO ----
 
-study.description      <- 'Moral Cleansing (Zhong & Liljenquist, 2006)'
-analysis.unique.id     <- 65
-analysis.name          <- 'Zhong.1'
+study.description      <- 'SMS & Well-Being (Anderson et al., 2012)'
+analysis.unique.id     <- 42
+analysis.name          <- 'Anderson.1'
 analysis.type          <- 1
 analysis.type.name     <- 'study_global_include'
 analysis.type.groups   <- 'Source.Global'
@@ -51,16 +51,14 @@ ML2.in <- get.info(ML2.key, colnames(ML2.df), subset.type)
 # Generate chain to select variables for the data frame and create a filter chain for the variables to use for analysis
 # Info based on KeyTable information in study.vars, cases.include, site.include, params.NA
 ML2.id <- get.chain(ML2.in)
-
 ML2.id$df
+
 
 # Apply the df chain to select relevant subset of variables
 
 ML2.df <- ML2.df %>%
-  dplyr::select(2,7,228,229,230,231,232,233,234,235,236,237,805,904,905,906,907,908,909,910,911,912,913,914,915,934,935,938,939,940) %>%
+  dplyr::select(2,7,206,207,208,209,210,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,244,245,246,247,248,253,254,255,256,257,258,259,260,261,262,263,264,265,266,267,268,269,270,271,272,521,522,523,524,525,526,527,528,529,530,531,532,535,536,537) %>%
   dplyr::filter(is.character(source))
-
-
 
 # Decide which analyses to run on which groups
 toRun  <- decide.analysis(ML2.key, analysis.unique.id, analysis.type, doAll = TRUE)
@@ -143,8 +141,8 @@ if(length(toRun$studiess)>0){
 
       if(all(nMin1,nMin2)){
 
-# To see the function code type:varfun.Zhong.1, or lookup in manylabRs_SOURCE.R
-ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
+# To see the function code type:varfun.Anderson.1, or lookup in manylabRs_SOURCE.R
+ML2.var[[g]] <- varfun.Anderson.1(ML2.sr[[g]])
 
 
         # Check equal variance assumption
@@ -158,7 +156,7 @@ ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
         stat.params <<- ML2.in$stat.params
 
 
-stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = Ethical, y = Unethical, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
+stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(SWB ~ Condition, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
 
 
         # Check for errors and warnings
@@ -393,7 +391,7 @@ dplyr::summarise(
 
 # Freq test ------
 
-ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
+ML2.var[[g]] <- varfun.Anderson.1(ML2.sr[[g]])
 
 stat.params <<- ML2.in$stat.params
 
@@ -411,8 +409,6 @@ studySummary <- dat %>%
     sd = sd(variable, na.rm=TRUE)
   )
 
-
-
 sum(studySummary$n)
 studySummary$mean
 studySummary$sd
@@ -421,10 +417,10 @@ freqRes$statistic
 freqRes$p.value
 freqRes$statistic*sqrt(sum(studySummary$n)/prod(studySummary$n))
 
+# Alexander ----
 dat <- addSources(ML2.var, ML2.df)
-# save(dat, stat.params, file="zhong.RData")
+# save(dat, stat.params, file="anderson.RData")
 
-# Alexander -----
 dat <- checkUniqueIds(dat)
 tempRes <- removeOneConditionSources(dat)
 
@@ -436,13 +432,12 @@ dat <- dat[dat$source %in% allSources, ]
 if (stat.params$alternative=="two.sided")
   stat.params$alternative <- "twoSided"
 
-
 # Here -------
 alpha <- 0.05
 betaFutility <- alpha
-deltaMin <- 1.02
-varEqual <- stat.params$var.equal
+deltaMin <- 0.57
 power <- 0.8
+varEqual <- stat.params$var.equal
 alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
 
 designObj <- designSaviT(alpha=alpha, power=power,
@@ -480,7 +475,7 @@ mean(res1$totalStoppingTimes)
 sd(res1$totalStoppingTimes)
 
 # Scenario 2-----
-res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3L)
+res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3)
 
 logMetaE<- rowSums(log(res2$eValues))
 mean(logMetaE)
@@ -496,6 +491,7 @@ sd(res2$alternativeProportion)
 mean(res2$futilityProportion)
 sd(res2$futilityProportion)
 
+
 mean(res2$totalStoppingTimes)
 sd(res2$totalStoppingTimes)
 
@@ -503,7 +499,7 @@ sd(res2$totalStoppingTimes)
 
 res3 <- scenario3T(dat=dat, allSources=allSources, designObj=designObj,
                    alpha=alpha, betaFutility=betaFutility,
-                   nuMin=nuMin, nSim=1e3L)
+                   nuMin=nuMin, nSim=1e3L, wantCi=wantCi)
 
 mean(res3$logMetaE)
 sd(res3$logMetaE)
@@ -520,6 +516,4 @@ sd(res3$futilityProportion)
 mean(res3$totalStoppingTimes)
 sd(res3$totalStoppingTimes)
 
-# save(res1, res2, res3, file="zhong1Result.RData")
-
-
+# save(res1, res2, res3, file="anderson1Result.RData")

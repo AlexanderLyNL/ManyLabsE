@@ -15,15 +15,14 @@ source(file.path(project.root, "00_utils", "helpers.R"))
 
 # ANALYSIS INFO ----
 
-study.description      <- 'Moral Cleansing (Zhong & Liljenquist, 2006)'
-analysis.unique.id     <- 65
-analysis.name          <- 'Zhong.1'
+study.description      <- 'Priming Warmth (Zaval et al., 2014)'
+analysis.unique.id     <- 77
+analysis.name          <- 'Zaval.3'
 analysis.type          <- 1
 analysis.type.name     <- 'study_global_include'
 analysis.type.groups   <- 'Source.Global'
 Nmin.raw               <- 30
 Nmin.cond              <- 15
-subset                 <- 'all'
 subset.type <- "all"
 saveAll <- FALSE
 
@@ -51,15 +50,14 @@ ML2.in <- get.info(ML2.key, colnames(ML2.df), subset.type)
 # Generate chain to select variables for the data frame and create a filter chain for the variables to use for analysis
 # Info based on KeyTable information in study.vars, cases.include, site.include, params.NA
 ML2.id <- get.chain(ML2.in)
-
 ML2.id$df
+
 
 # Apply the df chain to select relevant subset of variables
 
 ML2.df <- ML2.df %>%
-  dplyr::select(2,7,228,229,230,231,232,233,234,235,236,237,805,904,905,906,907,908,909,910,911,912,913,914,915,934,935,938,939,940) %>%
+  dplyr::select(2,7,430,805,904,905,906,907,908,909,910,911,912,913,914,915,931,933,938,939,940) %>%
   dplyr::filter(is.character(source))
-
 
 
 # Decide which analyses to run on which groups
@@ -143,8 +141,8 @@ if(length(toRun$studiess)>0){
 
       if(all(nMin1,nMin2)){
 
-# To see the function code type:varfun.Zhong.1, or lookup in manylabRs_SOURCE.R
-ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
+# To see the function code type:varfun.Zaval.1, or lookup in manylabRs_SOURCE.R
+ML2.var[[g]] <- varfun.Zaval.1(ML2.sr[[g]])
 
 
         # Check equal variance assumption
@@ -158,7 +156,7 @@ ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
         stat.params <<- ML2.in$stat.params
 
 
-stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = Ethical, y = Unethical, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
+stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = Heat, y = Cold, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
 
 
         # Check for errors and warnings
@@ -393,7 +391,7 @@ dplyr::summarise(
 
 # Freq test ------
 
-ML2.var[[g]] <- varfun.Zhong.1(ML2.sr[[g]])
+ML2.var[[g]] <- varfun.Zaval.1(ML2.sr[[g]])
 
 stat.params <<- ML2.in$stat.params
 
@@ -411,8 +409,6 @@ studySummary <- dat %>%
     sd = sd(variable, na.rm=TRUE)
   )
 
-
-
 sum(studySummary$n)
 studySummary$mean
 studySummary$sd
@@ -421,10 +417,19 @@ freqRes$statistic
 freqRes$p.value
 freqRes$statistic*sqrt(sum(studySummary$n)/prod(studySummary$n))
 
-dat <- addSources(ML2.var, ML2.df)
-# save(dat, stat.params, file="zhong.RData")
+# Alexander ----
+print("FACTOR CHANGE SIGN")
 
-# Alexander -----
+dat <- addSources(ML2.var, ML2.df)
+dat$factor <- ordered(dat$factor,
+                      sort(unique(dat$factor), decreasing=TRUE))
+
+freqRes2 <- t.test(variable ~ factor, data = dat, var.equal = stat.params$var.equal)
+freqRes2$statistic
+freqRes$statistic
+
+# save(dat, stat.params, file="zaval.RData")
+
 dat <- checkUniqueIds(dat)
 tempRes <- removeOneConditionSources(dat)
 
@@ -440,7 +445,7 @@ if (stat.params$alternative=="two.sided")
 # Here -------
 alpha <- 0.05
 betaFutility <- alpha
-deltaMin <- 1.02
+deltaMin <- 0.31
 varEqual <- stat.params$var.equal
 power <- 0.8
 alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
@@ -480,7 +485,7 @@ mean(res1$totalStoppingTimes)
 sd(res1$totalStoppingTimes)
 
 # Scenario 2-----
-res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3L)
+res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3)
 
 logMetaE<- rowSums(log(res2$eValues))
 mean(logMetaE)
@@ -495,6 +500,7 @@ sd(res2$alternativeProportion)
 
 mean(res2$futilityProportion)
 sd(res2$futilityProportion)
+
 
 mean(res2$totalStoppingTimes)
 sd(res2$totalStoppingTimes)
@@ -520,6 +526,91 @@ sd(res3$futilityProportion)
 mean(res3$totalStoppingTimes)
 sd(res3$totalStoppingTimes)
 
-# save(res1, res2, res3, file="zhong1Result.RData")
+# save(res1, res2, res3, file="zaval3Result.RData")
 
 
+# Here "greater"-------
+alpha <- 0.05
+betaFutility <- alpha
+deltaMin <- 0.31
+varEqual <- stat.params$var.equal
+power <- 0.8
+alternative <- "greater"
+
+designObj <- designSaviT(alpha=alpha, power=power,
+                         deltaMin=deltaMin, futility=TRUE,
+                         betaFutility=betaFutility,
+                         varEqual=varEqual, testType="twoSample",
+                         alternative=alternative)
+
+# Scenario 1 ----
+res1Plus <- scenario1T(dat=dat, allSources=allSources, designObj=designObj,
+                   nuMin=3, alpha=alpha, betaFutility=betaFutility,
+                   nSim=1e3, alternative=alternative)
+
+mean(res1Plus$eValues >= 1/alpha)
+mean(res1Plus$eValuesFut <= betaFutility)
+
+res1Plus$nStudiesAlternativeWorstCase
+res1Plus$nStudiesFutilityWorstCase
+
+res1Plus$nSamplesAlternativeWorstCase
+res1Plus$nSamplesFutilityWorstCase
+
+mean(res1Plus$stopDecision==1)
+mean(res1Plus$stopDecision==-1)
+
+mean(res1Plus$nStudies)
+
+mean(res1Plus$logMetaE)
+sd(res1Plus$logMetaE)
+
+mean(res1Plus$logMetaEFut)
+sd(res1Plus$logMetaEFut)
+
+mean(res1Plus$totalStoppingTimes)
+sd(res1Plus$totalStoppingTimes)
+
+# Scenario 2-----
+res2Plus <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3)
+
+logMetaE<- rowSums(log(res2Plus$eValues))
+mean(logMetaE)
+sd(logMetaE)
+
+logMetaEFut <- rowSums(log(res2Plus$eValuesFut))
+mean(logMetaEFut)
+sd(logMetaEFut)
+
+mean(res2Plus$alternativeProportion)
+sd(res2Plus$alternativeProportion)
+
+mean(res2Plus$futilityProportion)
+sd(res2Plus$futilityProportion)
+
+
+mean(res2Plus$totalStoppingTimes)
+sd(res2Plus$totalStoppingTimes)
+
+#Scenario 3 ------
+
+res3Plus <- scenario3T(dat=dat, allSources=allSources, designObj=designObj,
+                       alpha=alpha, betaFutility=betaFutility,
+                       nuMin=nuMin, nSim=1e3L)
+
+mean(res3Plus$logMetaE)
+sd(res3Plus$logMetaE)
+
+mean(res3Plus$logMetaEFut)
+sd(res3Plus$logMetaEFut)
+
+mean(res3Plus$alternativeProportion)
+sd(res3Plus$alternativeProportion)
+
+mean(res3Plus$futilityProportion)
+sd(res3Plus$futilityProportion)
+
+mean(res3Plus$totalStoppingTimes)
+sd(res3Plus$totalStoppingTimes)
+
+# save(res1Plus, res2Plus, res3Plus, file="zaval3ResultPlus.RData")
