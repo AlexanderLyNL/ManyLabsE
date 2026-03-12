@@ -527,3 +527,90 @@ mean(res3$totalStoppingTimes)
 sd(res3$totalStoppingTimes)
 
 # save(res1, res2, res3, file="zaval3Result.RData")
+
+
+# Here "greater"-------
+alpha <- 0.05
+betaFutility <- alpha
+deltaMin <- 0.31
+varEqual <- stat.params$var.equal
+power <- 0.8
+alternative <- "greater"
+
+designObj <- designSaviT(alpha=alpha, power=power,
+                         deltaMin=deltaMin, futility=TRUE,
+                         betaFutility=betaFutility,
+                         varEqual=varEqual, testType="twoSample",
+                         alternative=alternative)
+
+# Scenario 1 ----
+res1Plus <- scenario1T(dat=dat, allSources=allSources, designObj=designObj,
+                   nuMin=3, alpha=alpha, betaFutility=betaFutility,
+                   nSim=1e3, alternative=alternative)
+
+mean(res1Plus$eValues >= 1/alpha)
+mean(res1Plus$eValuesFut <= betaFutility)
+
+res1Plus$nStudiesAlternativeWorstCase
+res1Plus$nStudiesFutilityWorstCase
+
+res1Plus$nSamplesAlternativeWorstCase
+res1Plus$nSamplesFutilityWorstCase
+
+mean(res1Plus$stopDecision==1)
+mean(res1Plus$stopDecision==-1)
+
+mean(res1Plus$nStudies)
+
+mean(res1Plus$logMetaE)
+sd(res1Plus$logMetaE)
+
+mean(res1Plus$logMetaEFut)
+sd(res1Plus$logMetaEFut)
+
+mean(res1Plus$totalStoppingTimes)
+sd(res1Plus$totalStoppingTimes)
+
+# Scenario 2-----
+res2Plus <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3)
+
+logMetaE<- rowSums(log(res2Plus$eValues))
+mean(logMetaE)
+sd(logMetaE)
+
+logMetaEFut <- rowSums(log(res2Plus$eValuesFut))
+mean(logMetaEFut)
+sd(logMetaEFut)
+
+mean(res2Plus$alternativeProportion)
+sd(res2Plus$alternativeProportion)
+
+mean(res2Plus$futilityProportion)
+sd(res2Plus$futilityProportion)
+
+
+mean(res2Plus$totalStoppingTimes)
+sd(res2Plus$totalStoppingTimes)
+
+#Scenario 3 ------
+
+res3Plus <- scenario3T(dat=dat, allSources=allSources, designObj=designObj,
+                       alpha=alpha, betaFutility=betaFutility,
+                       nuMin=nuMin, nSim=1e3L)
+
+mean(res3Plus$logMetaE)
+sd(res3Plus$logMetaE)
+
+mean(res3Plus$logMetaEFut)
+sd(res3Plus$logMetaEFut)
+
+mean(res3Plus$alternativeProportion)
+sd(res3Plus$alternativeProportion)
+
+mean(res3Plus$futilityProportion)
+sd(res3Plus$futilityProportion)
+
+mean(res3Plus$totalStoppingTimes)
+sd(res3Plus$totalStoppingTimes)
+
+# save(res1Plus, res2Plus, res3Plus, file="zaval3ResultPlus.RData")
