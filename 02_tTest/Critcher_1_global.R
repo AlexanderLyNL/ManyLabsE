@@ -443,4 +443,94 @@ tempRes <- removeOneConditionSources(dat)
 allSources <- tempRes$allSources
 sampleSize <- tempRes$sampleSize
 
+dat <- dat[dat$source %in% allSources, ]
 
+if (stat.params$alternative=="two.sided")
+  stat.params$alternative <- "twoSided"
+
+
+# Here -------
+alpha <- 0.05
+betaFutility <- alpha
+deltaMin <- 0.3
+varEqual <- stat.params$var.equal
+power <- 0.8
+alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
+
+designObj <- designSaviT(alpha=alpha, power=power,
+                         deltaMin=deltaMin, futility=TRUE,
+                         betaFutility=betaFutility,
+                         varEqual=varEqual, testType="twoSample",
+                         alternative=alternative)
+
+# Scenario 1 ----
+res1 <- scenario1T(dat=dat, allSources=allSources, designObj=designObj,
+                   nuMin=3, alpha=alpha, betaFutility=betaFutility,
+                   nSim=1e3, alternative=alternative)
+
+mean(res1$eValues >= 1/alpha)
+mean(res1$eValuesFut <= betaFutility)
+
+res1$nStudiesAlternativeWorstCase
+res1$nStudiesFutilityWorstCase
+
+res1$nSamplesAlternativeWorstCase
+res1$nSamplesFutilityWorstCase
+
+mean(res1$stopDecision==1)
+mean(res1$stopDecision==-1)
+
+mean(res1$nStudies)
+
+mean(res1$logMetaE)
+sd(res1$logMetaE)
+
+mean(res1$logMetaEFut)
+sd(res1$logMetaEFut)
+
+mean(res1$totalStoppingTimes)
+sd(res1$totalStoppingTimes)
+
+# Scenario 2-----
+res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3)
+
+logMetaE<- rowSums(log(res2$eValues))
+mean(logMetaE)
+sd(logMetaE)
+
+logMetaEFut <- rowSums(log(res2$eValuesFut))
+mean(logMetaEFut)
+sd(logMetaEFut)
+
+mean(res2$alternativeProportion)
+sd(res2$alternativeProportion)
+
+mean(res2$futilityProportion)
+sd(res2$futilityProportion)
+
+
+mean(res2$totalStoppingTimes)
+sd(res2$totalStoppingTimes)
+
+#Scenario 3 ------
+
+res3 <- scenario3T(dat=dat, allSources=allSources, designObj=designObj,
+                   alpha=alpha, betaFutility=betaFutility,
+                   nuMin=nuMin, nSim=1e3L)
+
+mean(res3$logMetaE)
+sd(res3$logMetaE)
+
+mean(res3$logMetaEFut)
+sd(res3$logMetaEFut)
+
+mean(res3$alternativeProportion)
+sd(res3$alternativeProportion)
+
+mean(res3$futilityProportion)
+sd(res3$futilityProportion)
+
+mean(res3$totalStoppingTimes)
+sd(res3$totalStoppingTimes)
+
+# save(res1, res2, res3, file="critcher1Result.RData")

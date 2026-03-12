@@ -59,7 +59,8 @@ pdfHeight <- 7
 cexFactor <- 1.3
 myCexAxis <- 2.25
 
-betaFutility <- 0.2
+alpha <- 0.05
+betaFutility <- alpha
 
 # Gray data --------
 
@@ -91,6 +92,12 @@ myWd <-  if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "
 
 
 load(paste0(myWd, "grayData.RData"))
+
+
+which(!is.na(grayData$gray1.2))
+which(!is.na(grayData$gray2.2))
+
+
 
 
 allSources <- unique(grayData$source)
@@ -224,26 +231,6 @@ lines(eFutMetaAverage, col="red")
 which(eFutMetaAverage < 0.2)
 
 # Scenario 3 ---------
-checkXY <- function(x, y) {
-  if (length(x) >= 1 && length(y) >= 1)
-    return(TRUE)
-
-  if (is.null(x))
-    return(FALSE)
-
-  if (is.null(y))
-    return(FALSE)
-
-  if (is.na(x))
-    return(FALSE)
-
-  if (is.na(y))
-    return(FALSE)
-
-  return(TRUE)
-}
-
-
 xNa <- which(is.na(grayData$gray1.2))
 yNa <- which(is.na(grayData$gray2.2))
 

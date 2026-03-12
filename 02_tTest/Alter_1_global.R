@@ -432,189 +432,86 @@ dat <- dat[dat$source %in% allSources, ]
 if (stat.params$alternative=="two.sided")
   stat.params$alternative <- "twoSided"
 
-
 # Here -------
 alpha <- 0.05
 betaFutility <- alpha
 deltaMin <- 0.63
+varEqual <- stat.params$var.equal
+alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
 
-designObj <- designSaviT(alpha=alpha,
-  deltaMin=deltaMin, futility=TRUE, power=0.8,
-  varEqual=stat.params$var.equal, testType="twoSample",
-  alternative=stat.params$alternative)
+designObj <- designSaviT(alpha=alpha, power=0.8,
+  deltaMin=deltaMin, futility=TRUE,
+  varEqual=varEqual, testType="twoSample",
+  alternative=alternative)
 
 # Scenario 1 ----
 res1 <- scenario1T(dat=dat, allSources=allSources, designObj=designObj,
-           nuMin=3, alpha=alpha, betaFutility=betaFutility,
-           seed=1, nSim=1e3)
+                   nuMin=3, alpha=alpha, betaFutility=betaFutility,
+                   nSim=1e3, alternative=alternative)
 
-res1$mostNStudiesForAlternative
-res1$mostNStudiesForFutility
+mean(res1$eValues >= 1/alpha)
+mean(res1$eValuesFut <= betaFutility)
 
-res1$mostNSamplesForAlternative
-res1$mostNSamplesForFutility
+res1$nStudiesAlternativeWorstCase
+res1$nStudiesFutilityWorstCase
 
-mean(res1$logMetaEvalues)
-sd(res1$logMetaEvalues)
-mean(res1$logMetaEvaluesFut)
-sd(res1$logMetaEvaluesFut)
+res1$nSamplesAlternativeWorstCase
+res1$nSamplesFutilityWorstCase
 
-mean(res1$nStopVec)
+mean(res1$stopDecision==1)
+mean(res1$stopDecision==-1)
 
-mean(res1$stopForAlt)
-mean(res1$stopForFutility)
+mean(res1$nStudies)
 
-mean(res1$nStopVec)
-sd(res1$nStopVec)
+mean(res1$logMetaE)
+sd(res1$logMetaE)
+
+mean(res1$logMetaEFut)
+sd(res1$logMetaEFut)
+
+mean(res1$totalStoppingTimes)
+sd(res1$totalStoppingTimes)
 
 # Scenario 2-----
-res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e2)
+res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3)
+
+logMetaE<- rowSums(log(res2$eValues))
+mean(logMetaE)
+sd(logMetaE)
+
+logMetaEFut <- rowSums(log(res2$eValuesFut))
+mean(logMetaEFut)
+sd(logMetaEFut)
+
+mean(res2$alternativeProportion)
+sd(res2$alternativeProportion)
+
+mean(res2$futilityProportion)
+sd(res2$futilityProportion)
 
 
-logEValues<- rowSums(log(res2$eValues))
-mean(logEValues)
-sd(logEValues)
+mean(res2$totalStoppingTimes)
+sd(res2$totalStoppingTimes)
 
-logEValuesFut <- rowSums(log(res2$eValuesFut))
-mean(logEValuesFut)
-sd(logEValuesFut)
+#Scenario 3 ------
 
+res3 <- scenario3T(dat=dat, allSources=allSources, designObj=designObj,
+                   alpha=alpha, betaFutility=betaFutility,
+                   nuMin=nuMin, nSim=1e3L, wantCi=wantCi)
 
-stopingTimes <- rowSums(res2$nStop)
-mean(stopingTimes)
-sd(stopingTimes)
+mean(res3$logMetaE)
+sd(res3$logMetaE)
 
-dim(dat)
-# loop end ----
+mean(res3$logMetaEFut)
+sd(res3$logMetaEFut)
 
-# Scenario 1 ----
-# In the order of how the sources are mentioned, but can use randomisation
-#   Also only up to n1=n1End and n2 = ratio*n1,
-#   where ratio n2End/n1End, for instance when n1End > 47.
-#   When n1End < 47, then the eValue is copied until n1=47
-#   For instance:
-#
-#   print(allEValueVecs[, 3])
-#
-n1End <- dim(allEValueVecs)[1]
+mean(res3$alternativeProportion)
+sd(res3$alternativeProportion)
 
-eMeta <- exp(cumsum(log(allEValueVecs[n1End, ])))
-eFutMeta <- exp(cumsum(log(allEValueVecsFut[n1End, ])))
+mean(res3$futilityProportion)
+sd(res3$futilityProportion)
 
-plot(eMeta, type="l", log="y")
-lines(eFutMeta, col="red")
+mean(res3$totalStoppingTimes)
+sd(res3$totalStoppingTimes)
 
-eMetaAverage <- cumsum(allEValueVecs[n1End, ])/(1:length(allSources))
-eFutMetaAverage <- cumsum(allEValueVecsFut[n1End, ])/(1:length(allSources))
-
-plot(eMetaAverage, type="l", log="y")
-lines(eFutMetaAverage, col="red")
-
-which(eMeta > 1/alpha)
-which(eMetaAverage > 1/alpha)
-
-which(eFutMeta <= betaFutility)
-which(eFutMetaAverage <= betaFutility)
-
-
-# Scenario 2 ----
-eMeta <- exp(rowSums(log(allEValueVecs)))
-eFutMeta <- exp(rowSums(log(allEValueVecsFut)))
-
-plot(eMeta, type="l", log="y")
-lines(eFutMeta, col="red")
-
-eMetaAverage <- rowMeans(allEValueVecs)
-eFutMetaAverage <- rowMeans(allEValueVecsFut)
-
-plot(eMetaAverage, type="l", log="y")
-lines(eFutMetaAverage, col="red")
-
-which(eMeta >= 1/alpha)
-which(eMetaAverage >= 1/alpha)
-
-which(eFutMeta <= betaFutility)
-which(eFutMetaAverage <= betaFutility)
-
-# Scenario 3 ---------
-nTotal <- length(unique(dat$uID))
-
-
-set.seed(1)
-someOrder <- sample(unique(dat$uID), nTotal)
-
-sourceDataTracker <- vector(mode="list", length=length(allSources))
-names(sourceDataTracker) <- allSources
-
-for (neem in allSources)
-  sourceDataTracker[[neem]] <- list(x=NULL, y=NULL)
-
-eFutCollection <- eCollection <- as.data.frame(matrix(ncol=length(allSources), nrow=nTotal))
-names(eFutCollection) <- names(eCollection) <- allSources
-eFutCollection[1, ] <- eCollection[1, ] <- 1
-
-
-for (i in seq_along(someOrder)) {
-  # for (i in 1:1000) {
-  someId <- someOrder[i]
-
-  someRow <- dat[which(dat$uID==someId), ]
-
-  someSource <- someRow$source
-
-  sourceDataTemp <- sourceDataTracker[[someSource]]
-
-  x <- sourceDataTemp$x
-  y <- sourceDataTemp$y
-
-  if (someRow$factor==factorLevels[1]) {
-    sourceDataTracker[[someSource]]$x <- x <- c(x, someRow$variable)
-  } else if (someRow$factor==factorLevels[2]) {
-    sourceDataTracker[[someSource]]$y <- y <- c(y, someRow$variable)
-  }
-
-  if (i >1) {
-    someCheck <- checkXY(x, y)
-
-    if (someCheck) {
-      tempRes <- saviTTest(x, y, designObj=designObj,
-                           sequential=FALSE)
-
-      eCollection[[someSource]][i] <- tempRes$eValue
-      eFutCollection[[someSource]][i] <- tempRes$eValueFut
-    } else {
-      eCollection[[someSource]][i] <- 1
-      eFutCollection[[someSource]][i] <- 1
-    }
-
-    for (source in allSources) {
-      if (source!=someSource) {
-        eCollection[[source]][i] <- eCollection[[source]][i-1]
-        eFutCollection[[source]][i] <- eFutCollection[[source]][i-1]
-      }
-    }
-  }
-}
-
-eMatrix <- as.matrix(eCollection)
-eFutMatrix <- as.matrix(eFutCollection)
-
-eMeta <- exp(rowSums(log(eMatrix)))
-eFutMeta <- exp(rowSums(log(eFutMatrix)))
-
-plot(1:nTotal, eMeta, type="l", log="y")
-lines(1:nTotal, eFutMeta, col="red")
-
-
-eMetaAverage <- rowMeans(eMatrix)
-eFutMetaAverage <- rowMeans(eFutMatrix)
-
-plot(1:nTotal, eMetaAverage, type="l", log="y")
-lines(1:nTotal, eFutMetaAverage, col="red")
-
-which(eMeta >= 1/alpha)
-which(eMetaAverage >= 1/alpha)
-
-which(eFutMeta <= betaFutility)
-which(eFutMetaAverage <= betaFutility)
-
+# save(res1, res2, res3, file="alter1Result.RData")

@@ -106,63 +106,13 @@ checkXY <- function(x, y) {
 }
 
 
-twoSampleTTestRandomOrder <- function(
-    x, y, n1, n2, designObj,
-    nuMin=3, alpha=0.05,
-    betaFutility=alpha, nMax=n1+n2, wantCi=FALSE) {
-
-  nParticipants <- n1+n2
-  someOrder <- sample(nParticipants, nParticipants)
-
-  nMax <- min(nMax, nParticipants)
-
-  xRun <- numeric(0)
-  yRun <- numeric(0)
-
-  for (j in seq_along(someOrder)) {
-    partId <- someOrder[j]
-
-    xTemp <- sample(x, length(x))
-    yTemp <- sample(y, length(y))
-
-    xTemp <- xTemp[1:n1]
-    yTemp <- yTemp[1:n2]
-
-    totalVar <- c(xTemp, yTemp)
-
-    if (partId <= n1) {
-      xRun <- c(xRun, totalVar[someOrder[j]])
-    } else {
-      yRun <- c(yRun, totalVar[someOrder[j]])
-    }
-
-
-    someCheck <- checkXY(xRun, yRun)
-
-    if (someCheck) {
-      tempRes <- saviTTest(
-        xRun, yRun, designObj=designObj,
-        sequential=FALSE, nuMin=nuMin, wantCi=wantCi)
-
-      eNow <- tempRes$eValue
-      eFutNow <- tempRes$eValueFut
-
-      # length(xRun) >= nMax[1] && length(yRun) >= nMax[2]
-
-      if (eNow >= 1/alpha || eFutNow <= betaFutility ||
-          j==nMax) {
-        res <- list(nStop=j, eValue=eNow, eValueFut=eFutNow)
-        return(res)
-      }
-    }
-  }
-}
-
-
 scenario1T <- function(dat, allSources, designObj,
                        nuMin=3, wantCi=FALSE,
                        alpha=0.05, betaFutility=alpha,
-                       seed=NULL, nSim=1e3L) {
+                       seed=NULL, nSim=1e3L,
+                       alternative=c("twoSided", "greater", "less")) {
+
+  alternative <- match.arg(alternative)
 
   nSources <- length(allSources)
 
@@ -188,13 +138,20 @@ scenario1T <- function(dat, allSources, designObj,
     n1Vec[i] <- n1
     n2Vec[i] <- n2
 
+    alternativeOld <- switch(alternative,
+                             "twoSided"="two.sided",
+                             "greater"="greater",
+                             "less"="less")
+
     tempResult <- t.test(x[1:n1], y[1:n2],
-                         var.equal=stat.params$var.equal)
+                         alternative=alternativeOld,
+                         var.equal=varEqual)
+
     pValues[i] <- tempResult$p.value
 
-    tempRes <- saviTTest(x=x, y=y, designObj=designObj,
-                         sequential=FALSE, wantCi=wantCi,
-                         nuMin=nuMin)
+    tempRes <- saviTTest("x"=x, "y"=y, "designObj"=designObj,
+                         "sequential"=FALSE, "wantCi"=wantCi,
+                         "nuMin"=nuMin)
 
     eValues[i] <- tempRes$eValue
     eValuesFut[i] <- tempRes$eValueFut
@@ -203,9 +160,10 @@ scenario1T <- function(dat, allSources, designObj,
   tempRes <- list("eValues"=eValues, "eValuesFut"=eValuesFut,
                   "pValues"=pValues,
                   "n1Vec"=n1Vec, "n2Vec"=n2Vec)
+
   tempRes2 <- computeWorstCaseScenario1(
-    tempRes, alpha=alpha, betaFutility=betaFutility,
-    seed=seed, nSim=nSim)
+    tempRes, "alpha"=alpha, "betaFutility"=betaFutility,
+    "seed"=seed, "nSim"=nSim)
 
   res <- utils::modifyList(tempRes, tempRes2)
 
@@ -221,32 +179,29 @@ computeWorstCaseScenario1 <- function(
 
   nSources <- length(eValuesFut)
 
-  mostNStudiesForAlternative <- min(which(cumsum(log(eValues)) >= 1/alpha))
-  mostNStudiesForFutility <- min(which(cumsum(log(eValuesFut)) <= betaFutility))
+  nStudiesAlternativeWorstCase <- min(which(cumsum(log(eValues)) >= log(1/alpha)))
+  nStudiesFutilityWorstCase <- min(which(cumsum(log(eValuesFut)) <= log(betaFutility)))
 
-  if (is.infinite(mostNStudiesForAlternative)) {
-    mostNSamplesForAlternative <- sum(res$n1Vec)+sum(res$n2Vec)
+  if (is.infinite(nStudiesAlternativeWorstCase)) {
+    nSamplesAlternativeWorstCase <- sum(res$n1Vec)+sum(res$n2Vec)
   } else {
     someOrder <- order(res$eValues)
-    indexStudiesNeeded <- someOrder[1:mostNStudiesForAlternative]
+    indexStudiesNeeded <- someOrder[1:nStudiesAlternativeWorstCase]
 
-    mostNSamplesForAlternative <- sum(res$n1Vec[indexStudiesNeeded])+sum(res$n2Vec[indexStudiesNeeded])
+    nSamplesAlternativeWorstCase <- sum(res$n1Vec[indexStudiesNeeded])+sum(res$n2Vec[indexStudiesNeeded])
   }
 
-  if (is.infinite(mostNStudiesForFutility)) {
-    mostNStudiesForFutility <- sum(res$n1Vec)+sum(res$n2Vec)
+  if (is.infinite(nStudiesFutilityWorstCase)) {
+    nSamplesFutilityWorstCase <- sum(res$n1Vec)+sum(res$n2Vec)
   } else {
     someOrder <- order(res$eValuesFut)
-    indexStudiesNeeded <- someOrder[1:mostNStudiesForFutility]
+    indexStudiesNeeded <- someOrder[1:nStudiesFutilityWorstCase]
 
-    mostNSamplesForFutility <- sum(res$n1Vec[indexStudiesNeeded])+sum(res$n2Vec[indexStudiesNeeded])
+    nSamplesFutilityWorstCase <- sum(res$n1Vec[indexStudiesNeeded])+sum(res$n2Vec[indexStudiesNeeded])
   }
 
-  #
-  stopForAlt <- stopForFutility <- nStopStudies <- nStopVec <- integer(nSim)
-  logMetaEvalues <- logMetaEvaluesFut <- integer(nSim)
-
-
+  stopDecision <- nStudies <- totalStoppingTimes <- integer(nSim)
+  logMetaE <- logMetaEFut <- integer(nSim)
 
   set.seed(seed)
   for (i in 1:nSim) {
@@ -255,51 +210,52 @@ computeWorstCaseScenario1 <- function(
     tempEValues <- eValues[someOrder]
     tempEValuesFut <- eValuesFut[someOrder]
 
-    logMetaE <- cumsum(log(tempEValues))
-    logMetaEFut <- cumsum(log(tempEValuesFut))
+    logMetaETemp <- cumsum(log(tempEValues))
+    logMetaEFutTemp <- cumsum(log(tempEValuesFut))
 
-    tauForAlt <- min(which(logMetaE >= log(1/alpha)))
-    tauForFutility <- min(which(logMetaEFut <= log(betaFutility)))
+    tauForAlt <- min(which(logMetaETemp >= log(1/alpha)))
+    tauForFutility <- min(which(logMetaEFutTemp <= log(betaFutility)))
 
     if (tauForFutility < tauForAlt)
-      stopForFutility[i] <- 1
+      stopDecision[i] <- -1
 
     if (tauForAlt < tauForFutility)
-      stopForAlt[i] <- 1
+      stopDecision[i] <- 1
 
     tauRace <- min(tauForAlt, tauForFutility)
 
-    stopIndex <- nStopStudies[i] <- min(tauRace, nSources)
+    stopIndex <- nStudies[i] <- min(tauRace, nSources)
 
-    logMetaEvalues[i] <- logMetaE[stopIndex]
-    logMetaEvaluesFut[i] <- logMetaEFut[stopIndex]
+    logMetaE[i] <- logMetaETemp[stopIndex]
+    logMetaEFut[i] <- logMetaEFutTemp[stopIndex]
 
     indexNeededStudies <- someOrder[1:stopIndex]
 
-    nStopVec[i] <- sum(res$n1Vec[indexNeededStudies])+sum(res$n2Vec[indexNeededStudies])
+    totalStoppingTimes[i] <- sum(res$n1Vec[indexNeededStudies])+sum(res$n2Vec[indexNeededStudies])
   }
 
-  res <- list("mostNStudiesForAlternative"=mostNStudiesForAlternative,
-              "mostNStudiesForFutility"=mostNStudiesForFutility,
-              "mostNSamplesForAlternative"=mostNSamplesForAlternative,
-              "mostNSamplesForFutility"=mostNSamplesForFutility,
-              "stopForAlt"=stopForAlt, "stopForFutility"=stopForFutility,
-              "stopTime"=stopTime, "logMetaEvalues"=logMetaEvalues,
-              "logMetaEvaluesFut"=logMetaEvaluesFut,
-              "nStopVec"=nStopVec)
+  res <- list("nStudiesAlternativeWorstCase"=nStudiesAlternativeWorstCase,
+              "nStudiesFutilityWorstCase"=nStudiesFutilityWorstCase,
+              "nSamplesAlternativeWorstCase"=nSamplesAlternativeWorstCase,
+              "nSamplesFutilityWorstCase"=nSamplesFutilityWorstCase,
+              "stopDecision"=stopDecision,
+              "logMetaE"=logMetaE,
+              "logMetaEFut"=logMetaEFut,
+              "nStudies"=nStudies,
+              "totalStoppingTimes"=totalStoppingTimes)
 
   return(res)
 }
 
-
 scenario2T <- function(dat, allSources, designObj, alpha=0.05,
                        betaFutility=alpha, nuMin=3, nSim=1e2L,
-                       nMax=NULL, seed=NULL, wantCi=FALSE) {
+                       nMax=NULL, seed=NULL, wantCi=FALSE,
+                       alternative=c("twoSided", "greater", "less")) {
 
+  alternative <- match.arg(alternative)
   nSources <- length(allSources)
-  nSamples <- integer(nSources)
 
-  nStop <- eValues <- eValuesFut <- matrix(nrow=nSim, ncol=nSources)
+  nSamples <- eValues <- eValuesFut <- matrix(nrow=nSim, ncol=nSources)
 
   factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
 
@@ -322,9 +278,7 @@ scenario2T <- function(dat, allSources, designObj, alpha=0.05,
       n2 <- min(n2, designObj$nPlan[2])
     }
 
-    nParticipants <- nSamples[i] <- n1+n2
-
-    nMax <- n1+n2
+    nParticipants <- n1+n2
 
     set.seed(seed)
     for (k in 1:nSim) {
@@ -335,64 +289,223 @@ scenario2T <- function(dat, allSources, designObj, alpha=0.05,
         "wantCi"=wantCi, "nMax"=nMax
       )
 
-      nStop[k, i] <- tempRes$nStop
+      nSamples[k, i] <- tempRes$nSamples
       eValues[k, i] <- tempRes$eValue
       eValuesFut[k, i] <- tempRes$eValueFut
     }
   }
-  res <- list(nStop=nStop, eValues=eValues, eValuesFut=eValuesFut, pValues=pValues)
+
+  alternativeProportion <- futilityProportion <- numeric(length=nSim)
+
+  for (i in 1:nSim) {
+    alternativeProportion[i] <- mean(eValues[i, ] >= 1/alpha)
+    futilityProportion[i] <- mean(eValuesFut[i, ] <= betaFutility)
+  }
+
+  totalStoppingTimes <- rowSums(nSamples)
+
+  res <- list("nSamples"=nSamples, "eValues"=eValues, "eValuesFut"=eValuesFut,
+              "alternativeProportion"=alternativeProportion,
+              "futilityProportion"=futilityProportion,
+              "totalStoppingTimes"=totalStoppingTimes)
   return(res)
 }
 
 
 
-scenario3T <- function(dat, allSources, designObj, alpha=0.05,
-                       betaFutility=alpha, nuMin=3, nSim=1e2L,
-                       nMax=NULL, seed=NULL, wantCi=FALSE) {
+twoSampleTTestRandomOrder <- function(
+    x, y, n1, n2, designObj,
+    nuMin=3, alpha=0.05,
+    betaFutility=alpha, wantCi=FALSE, nMax=NULL) {
 
-  nSamples <- nSources <- pValues <- length(allSources)
-  nStop <- eValues <- eValuesFut <- matrix(nrow=nSim, ncol=nSources)
+  nParticipants <- n1+n2
+
+  xRun <- numeric(0)
+  yRun <- numeric(0)
+
+  someOrder <- sample(nParticipants, nParticipants)
+  xTemp <- sample(x, length(x))
+  yTemp <- sample(y, length(y))
+
+  xTemp <- xTemp[1:n1]
+  yTemp <- yTemp[1:n2]
+
+  totalVar <- c(xTemp, yTemp)
+
+  nMax <- if (is.null(nMax)) nParticipants else min(nParticipants, nMax)
+
+  for (j in seq_along(someOrder)) {
+    partId <- someOrder[j]
+
+    if (partId <= n1) {
+      xRun <- c(xRun, totalVar[partId])
+    } else {
+      yRun <- c(yRun, totalVar[partId])
+    }
+
+    someCheck <- checkXY(xRun, yRun)
+
+    if (someCheck) {
+      tempRes <- saviTTest(
+        "x"=xRun, "y"=yRun, "designObj"=designObj,
+        "sequential"=FALSE, "nuMin"=nuMin, "wantCi"=wantCi)
+
+      eNow <- tempRes$eValue
+      eFutNow <- tempRes$eValueFut
+
+      if (eNow >= 1/alpha || eFutNow <= betaFutility ||
+          j==nMax) {
+        res <- list("nSamples"=j, "eValue"=eNow, "eValueFut"=eFutNow)
+        return(res)
+      }
+    }
+  }
+}
+
+scenario3T <- function(dat, allSources, designObj, alpha=0.05,
+                       betaFutility=alpha, nuMin=3, nSim=1e3L,
+                       nMax=NULL, seed=NULL, wantCi=FALSE,
+                       nPlanLimit=FALSE) {
+  nTotal <- length(unique(dat$uID))
+  nSources <- length(allSources)
+
+  logMetaE <- logMetaEFut <- numeric(nSim)
+
+  alternativeProportion <- futilityProportion <- totalStoppingTimes <-
+    integer(nSim)
+
+  nSamples <- nStopDecision <- matrix(nrow=nSim, ncol=nSources)
+  logEValues <- logEValuesFut <- matrix(nrow=nSim, ncol=nSources)
+
+  set.seed(seed)
+  for (i in 1:nSim) {
+
+    tempRes <- computeScenario3TOneSim(
+      dat=dat, allSources=allSources, designObj=designObj,
+      alpha=alpha, betaFutility=betaFutility, nuMin=nuMin, nSim=nSim,
+      wantCi=wantCi, nPlanLimit=nPlanLimit)
+
+    logMetaE[i] <- tempRes$logMetaE
+    logMetaEFut[i] <- tempRes$logMetaEFut
+    logEValues[i, ] <- tempRes$logEValues
+    logEValuesFut[i, ] <- tempRes$logEValuesFut
+    nSamples[i, ] <- tempRes$nSamples
+    nStopDecision[i, ] <- tempRes$stopDecision
+
+    totalStoppingTimes[i] <- sum(tempRes$nSamples)
+    alternativeProportion[i] <- mean(tempRes$stopDecision==1)
+    futilityProportion[i] <- mean(tempRes$stopDecision==-1)
+  }
+
+  res <- list("logMetaE"=logMetaE, "logMetaEFut"=logMetaEFut,
+              "logEValues"=logEValues, "logEValuesFut"=logEValuesFut,
+              "nSamples"=nSamples, "nStopDecision"=nStopDecision,
+              "totalStoppingTimes"=totalStoppingTimes,
+              "alternativeProportion"=alternativeProportion,
+              "futilityProportion"=futilityProportion)
+  return(res)
+}
+
+computeScenario3TOneSim <- function(
+    dat, allSources, designObj, alpha=0.05,
+    betaFutility=alpha, nuMin=3, nSim=1e3L,
+    seed=NULL, wantCi=FALSE,
+    nPlanLimit=TRUE) {
+
+  nSources <- length(allSources)
 
   factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
 
-  for (i in 1:length(allSources)) {
-    someDat <- dat[dat$source==allSources[i], ]
+  sourceDataTracker <- vector(mode="list", length=nSources)
+  names(sourceDataTracker) <- allSources
 
-    ## Data ---
-    x <- someDat[which(someDat$factor==factorLevels[1]), ]$variable
-    y <- someDat[which(someDat$factor==factorLevels[2]), ]$variable
+  for (neem in allSources)
+    sourceDataTracker[[neem]] <- list(x=NULL, y=NULL)
 
-    # Remove non-available entries
-    x <- x[!is.na(x)]
-    n1 <- length(x)
+  nSamples <- integer(length=nSources)
+  names(nSamples) <- allSources
+  stopDecision <- nSamples
 
-    y <- y[!is.na(y)]
-    n2 <- length(y)
+  logETracker <- numeric(length=nSources)
+  names(logETracker) <- allSources
+  logEFutTracker <- logETracker
 
-    tempResult <- t.test(x[1:n1], y[1:n2],
-                         var.equal=stat.params$var.equal)
-    pValues[i] <- tempResult$p.value
+  nTotal <- length(dat$uID)
 
-    nParticipants <- nSamples[i] <- n1+n2
+  someOrder <- sample(unique(dat$uID), nTotal)
 
-    nMax <- if (is.null(nMax)) n1+n2 else sum(designObj$nPlan)
+  # meta eValues are all 1 at the start
+  #
+  logMetaENow <- logMetaEFutNow <- 0
 
-    set.seed(seed)
-    for (k in 1:nSim) {
-      tempRes <- twoSampleTTestRandomOrder(
-        "x"=x, "y"=y, "n1"=n1, "n2"=n2,
-        "designObj"=designObj, "nuMin"=nuMin,
-        "alpha"=alpha, "betaFutility"=betaFutility,
-        "wantCi"=wantCi, "nMax"=nMax
-      )
+  for (j in seq_along(someOrder)) {
+    someId <- someOrder[j]
 
-      nStop[k, i] <- tempRes$nStop
-      eValues[k, i] <- tempRes$eValue
-      eValuesFut[k, i] <- tempRes$eValueFut
+    someRow <- dat[which(dat$uID==someId), ]
+    someSource <- someRow$source
+
+    nSamples[[someSource]] <- nSamples[[someSource]] + 1
+
+    sourceDataTemp <- sourceDataTracker[[someSource]]
+
+    # Retrieve old values from state
+    #
+    x <- sourceDataTemp$x
+    y <- sourceDataTemp$y
+
+    # Skip if sample size limit is reached within trial
+    #
+    if (nPlanLimit && length(x) >= designObj$nPlan[1] && length(y) >= designObj$nPlan[2])
+      next()
+
+    # Skip if already stopped within trial
+    #
+    if (stopDecision[[someSource]]!=0)
+      next()
+
+
+    if (someRow$factor==factorLevels[1]) {
+      sourceDataTracker[[someSource]]$x <- x <- c(x, someRow$variable)
+    } else if (someRow$factor==factorLevels[2]) {
+      sourceDataTracker[[someSource]]$y <- y <- c(y, someRow$variable)
+    }
+
+    someCheck <- checkXY(x, y)
+
+    if (someCheck) {
+      logEValueOld <- logETracker[[someSource]]
+      logEValueFutOld <- logEFutTracker[[someSource]]
+
+      tempRes <- saviTTest("x"=x, "y"=y, "designObj"=designObj,
+                           "sequential"=FALSE, "wantCi"=wantCi)
+
+      logEValueNow <- logETracker[[someSource]] <-
+        log(tempRes$eValue)
+      logEValueFutNow <- logEFutTracker[[someSource]] <-
+        log(tempRes$eValueFut)
+
+      if (logEValueNow >= log(1/alpha))
+        stopDecision[[someSource]] <- 1
+
+      if (logEValueFutNow <= log(betaFutility))
+        stopDecision[[someSource]] <- -1
+
+      logMetaEAdd <- logEValueNow - logEValueOld
+      logMetaEFutAdd <- logEValueFutNow - logEValueFutOld
+
+      logMetaENow <- logMetaENow+logMetaEAdd
+      logMetaEFutNow <- logMetaEFutNow+logMetaEFutAdd
+
+      if (logMetaENow >= log(1/alpha) || logMetaEFutNow <= log(betaFutility)) {
+        break
+      }
     }
   }
-  res <- list(nStop=nStop, eValues=eValues, eValuesFut=eValuesFut, pValues=pValues)
+
+  res <- list(logMetaE=logMetaENow, logMetaEFut=logMetaEFutNow,
+              logEValuesFut=logEFutTracker,
+              logEValues=logETracker,
+              nSamples=nSamples,
+              stopDecision=stopDecision)
   return(res)
 }
-
-
