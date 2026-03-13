@@ -492,9 +492,9 @@ designObj <- designSaviZ(deltaMin, alpha=alpha, power=power,
 allSources <- unique(dat$source)
 
 # Scenario 1 ----
-res1 <- scenario1T(dat=dat, allSources=allSources, designObj=designObj,
-                   nuMin=3, alpha=alpha, betaFutility=betaFutility,
-                   nSim=1e3, alternative=alternative)
+res1 <- scenario1Cor(dat=dat, allSources=allSources, designObj=designObj,
+                     nuMin=3, alpha=alpha, betaFutility=betaFutility,
+                     nSim=1e3, alternative=alternative)
 
 mean(res1$eValues >= 1/alpha)
 mean(res1$eValuesFut <= betaFutility)
