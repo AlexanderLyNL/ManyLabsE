@@ -215,5 +215,3 @@ all_results <- list(
 
 # THIS IS STUDY-SPECIFFIC
 #saveRDS(all_results, file = file.path("~", "projects", "manyLabsE","02_tTest","KayData.rds"))
-
-
