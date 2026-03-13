@@ -509,3 +509,70 @@ computeScenario3TOneSim <- function(
               stopDecision=stopDecision)
   return(res)
 }
+
+
+scenario1Cor <- function(dat, allSources, designObj,
+                         nuMin=3, wantCi=FALSE,
+                         alpha=0.05, betaFutility=alpha,
+                         seed=NULL, nSim=1e3L,
+                         alternative=c("twoSided", "greater", "less")) {
+
+  alternative <- match.arg(alternative)
+
+  nSources <- length(allSources)
+
+  eValues <- eValuesFut <- pValues <- numeric(nSources)
+  n1Vec <- n2Vec <- integer(nSources)
+
+  factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
+
+  browser()
+
+  for (i in 1:length(allSources)) {
+    someDat <- dat[dat$source==allSources[i], ]
+
+    ## Data ---
+    x <- someDat[which(someDat$factor==factorLevels[1]), ]$variable
+    y <- someDat[which(someDat$factor==factorLevels[2]), ]$variable
+
+    # Remove non-available entries
+    x <- x[!is.na(x)]
+    n1 <- length(x)
+
+    y <- y[!is.na(y)]
+    n2 <- length(y)
+
+    n1Vec[i] <- n1
+    n2Vec[i] <- n2
+
+    alternativeOld <- switch(alternative,
+                             "twoSided"="two.sided",
+                             "greater"="greater",
+                             "less"="less")
+
+    tempResult <- t.test(x[1:n1], y[1:n2],
+                         alternative=alternativeOld,
+                         var.equal=varEqual)
+
+    pValues[i] <- tempResult$p.value
+
+    tempRes <- saviTTest("x"=x, "y"=y, "designObj"=designObj,
+                         "sequential"=FALSE, "wantCi"=wantCi,
+                         "nuMin"=nuMin)
+
+    eValues[i] <- tempRes$eValue
+    eValuesFut[i] <- tempRes$eValueFut
+  }
+
+  tempRes <- list("eValues"=eValues, "eValuesFut"=eValuesFut,
+                  "pValues"=pValues,
+                  "n1Vec"=n1Vec, "n2Vec"=n2Vec)
+
+  tempRes2 <- computeWorstCaseScenario1(
+    tempRes, "alpha"=alpha, "betaFutility"=betaFutility,
+    "seed"=seed, "nSim"=nSim)
+
+  res <- utils::modifyList(tempRes, tempRes2)
+
+  return(res)
+}

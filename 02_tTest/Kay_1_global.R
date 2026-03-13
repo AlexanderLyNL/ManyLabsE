@@ -7,14 +7,16 @@ library(safestats)
 
 #remotes::install_github("AlexanderLyNL/safestats", ref ="futility88")
 
-source(file.path("~", "projects", "manyLabsE","02_tTest","t_test_functions.R"))
 
+sourcePath <- if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "/Desktop/git/"
+myWd <-  if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "~/Desktop/git/manyLabsE/02_tTest/"
 
-# TODO: Set up your directory
-project.root <- file.path("~", "projects", "manyLabsE")
+project.root <- file.path("~", sourcePath, "manyLabsE")
 OSFdata.root <- file.path(project.root, "OSFdata")
 
 source(file.path(project.root, "00_utils", "WYQ_manylabRs_SOURCE.R"))
+source(file.path(project.root, "00_utils", "helpers.R"))
+
 
 # ANALYSIS INFO ----
 study.description      <- 'Structure & Goal Pursuit (Kay et al., 2014)'
@@ -111,7 +113,7 @@ t.test(variable ~ factor, data = ML2.var[[g]]$cleanDataFilter, var.equal = FALSE
 
 #write.csv(ML2.df, file = file.path(project.root,"02_tTest","kayData"), row.names = FALSE)
 
-#NOTE: we get t-statistic: 0.94092, while the original study says -0.94092 - the order of the groups is reversed 
+#NOTE: we get t-statistic: 0.94092, while the original study says -0.94092 - the order of the groups is reversed
 
 #############################################################################################################
 ## extended clean data filter and frequentist analysis
@@ -136,7 +138,7 @@ frequentist_results <- full_freq_t_test_analysis(extendedCleanDataFilter, var_eq
 original_study_estimated_effect_size <- 0.49
 
 esMinFutility <- original_study_estimated_effect_size
-deltaMin <- original_study_estimated_effect_size 
+deltaMin <- original_study_estimated_effect_size
 alpha <- 0.05
 betaFutility <- 0.05
 
