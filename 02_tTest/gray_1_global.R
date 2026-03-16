@@ -517,3 +517,6 @@ mean(res3$totalStoppingTimes)
 sd(res3$totalStoppingTimes)
 
 # save(res1, res2, res3, file="gray1Result.RData")
+
+load(file=paste0(myWd, "gray1Result.RData"))
+res2
