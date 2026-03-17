@@ -37,8 +37,8 @@ designObj <- list(esMin=esMin, futilityResult=list(parameter=futParam), alternat
 
 aap <- scenario1Table(dat, allSources, designObj)
 
-cumsum(log(aap$eValues)) >= 1/alpha
-cumsum(log(aap$eValuesFut)) <= betaFutility
+cumsum(log(aap$eValues)) >= log(1/alpha)
+cumsum(log(aap$eValuesFut)) <= log(betaFutility)
 
 plot(log(aap$eValuesFut), type="l")
 lines(1:length(aap$eValues), log(aap$eValues), col="blue")
