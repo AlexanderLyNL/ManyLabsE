@@ -10,13 +10,14 @@ source(file.path(project.root, "00_utils", "helpers.R"))
 
 # Data load ----
 
-fileNeem <- "Tversky_1_clean_tables.csv"
 
+# fileNeem <- "Tversky_1_clean_tables.csv"
+fileNeem <- "Hauser_4_clean_tables.csv"
 dat <- read.csv(file=paste0(myWd, "data/", fileNeem))
 
 dim(dat)
 head(dat)
-dat$sites
+
 
 # allSources <- checkEnoughDataInTable(dat)$allSources
 allSources <- unique(dat$sites)
@@ -28,8 +29,9 @@ length(allSources)
 # Here -------
 alpha <- 0.05
 betaFutility <- alpha
-alternative <- "greater"
-esMin <- 1.08
+alternative <- "twoSided"
+# esMin <- 1.08
+esMin <- 0.34
 futParam <- esMin
 logOddsRatio <- esMin
 
@@ -40,10 +42,10 @@ aap <- scenario1Table(dat, allSources, designObj)
 cumsum(log(aap$eValues)) >= log(1/alpha)
 cumsum(log(aap$eValuesFut)) <= log(betaFutility)
 
-plot(log(aap$eValuesFut), type="l")
+plot(log(aap$eValuesFut), type="l", col="darkgoldenrod")
 lines(1:length(aap$eValues), log(aap$eValues), col="blue")
 
-# plot(round(aap$eValues-aap$eValuesFut, 2), type="l"
+round(aap$eValues-aap$eValuesFut, 2)
 
 # Total sample size -------
 sum(dat$na) + sum(dat$nb)

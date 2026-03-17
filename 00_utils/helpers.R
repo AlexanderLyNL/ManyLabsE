@@ -696,19 +696,19 @@ saviTwoPropConditionalStat <- function(ya, na, nb, n1, logOddsRatio,
 
   if (eType=="grow") {
     if (alternative %in% c("twoSided", "greater")) {
-      sPlus0 <- BiasedUrn::dFNCHypergeo(x=ya, m1=na, m2=nb, n=n1,
+      marginalPlus <- BiasedUrn::dFNCHypergeo(x=ya, m1=na, m2=nb, n=n1,
                                         odds=exp(abs(logOddsRatio)))
     }
 
     if (alternative %in% c("twoSided", "less")) {
-      sMin0 <- BiasedUrn::dFNCHypergeo(x=ya, m1=na, m2=nb, n=n1,
+      marginalMin <- BiasedUrn::dFNCHypergeo(x=ya, m1=na, m2=nb, n=n1,
                                        odds=exp(-abs(logOddsRatio)))
     }
 
     eValue <- switch(alternative,
-                     "twoSided"=1/2*sPlus0/marginalNull+1/2*sMin0/marginalNull,
-                     "greater"=sPlus0/marginalNull,
-                     "less"=sMin0/marginalNull)
+                     "twoSided"=1/2*marginalPlus+1/2*marginalMin,
+                     "greater"=marginalPlus,
+                     "less"=marginalMin)/marginalNull
 
     res[["eValue"]] <- eValue
 
@@ -753,9 +753,6 @@ saviFutilityTwoPropConditionalStat <- function(
 
   alternative <- match.arg(alternative)
 
-  marginalNull <- BiasedUrn::dFNCHypergeo(x=ya, m1=na, m2=nb, n=n1,
-                                          odds=1)
-
   if (alternative %in% c("twoSided", "greater")) {
     sPlus0 <- saviTwoPropConditionalStat(
       ya=ya, na=na, nb=nb, n1=n1, logOddsRatio=logOddsRatio,
@@ -769,9 +766,9 @@ saviFutilityTwoPropConditionalStat <- function(
   }
 
   eValue <- switch(alternative,
-                   "greater"=sPlus0$eValue/marginalNull,
-                   "less"=sMin0$eValue/marginalNull,
-                   "twoSided"=max(sPlus0$eValue/marginalNull, sMin0$eValue/marginalNull))
+                   "greater"=sPlus0$eValue,
+                   "less"=sMin0$eValue,
+                   "twoSided"=max(sPlus0$eValue, sMin0$eValue))
 
   res <- list(eValue=eValue)
 
