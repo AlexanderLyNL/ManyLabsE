@@ -35,6 +35,46 @@ checkUniqueIds <- function(dat) {
   }
 }
 
+checkEnoughDataInTable <- function(dat, Nmin.raw=30, Nmin.cond=15) {
+  allSources <- unique(dat$sites)
+  nSources <- length(allSources)
+
+  allBadIndices <- integer(0)
+
+  for (i in seq_along(allSources)) {
+
+    someDat <- dat[dat$sites==allSources[i], ]
+
+    na <- someDat[["na"]]
+    nb <- someDat[["nb"]]
+    ya <- someDat[["ya"]]
+    yb <- someDat[["yb"]]
+    faila <- na-ya
+    failb <- nb-yb
+    nTotal <- na+nb
+
+    if (nTotal < Nmin.raw) {
+      allBadIndices <- c(allBadIndices, i)
+      next()
+    }
+
+    if (any(c(ya, yb, faila, failb) < Nmin.cond)) {
+      allBadIndices <- c(allBadIndices, i)
+      next()
+    }
+  }
+
+  if (length(allBadIndices) > 0) {
+    for (i in seq_along(allBadIndices))
+      cat("Not enough total or per condition samples: ", allSources[allBadIndices[i]], "\n")
+
+    allSources <- allSources[-allBadIndices]
+  }
+
+  res <- list("allSources"=allSources)
+  return(res)
+}
+
 removeOneConditionSources <- function(dat) {
   allSources <- unique(dat$source)
 
@@ -575,4 +615,180 @@ scenario1Cor <- function(dat, allSources, designObj,
   res <- utils::modifyList(tempRes, tempRes2)
 
   return(res)
+}
+
+scenario1Table <- function(dat, allSources, designObj,
+                           alpha=0.05, betaFutility=alpha,
+                           seed=NULL, nSim=1e3L) {
+
+  alternative <- designObj$alternative
+
+  nSources <- length(allSources)
+
+  eValues <- eValuesFut <- pValues <- numeric(nSources)
+
+  for (i in 1:length(allSources)) {
+    someDat <- dat[dat$sites==allSources[i], ]
+
+    ## Data ---
+    na <- someDat[["na"]]
+    nb <- someDat[["nb"]]
+    ya <- someDat[["ya"]]
+    yb <- someDat[["yb"]]
+
+    n1 <- ya+yb
+
+    # TODO(Alexander): Frequen,
+    #
+    # alternativeOld <- switch(alternative,
+    #                          "twoSided"="two.sided",
+    #                          "greater"="greater",
+    #                          "less"="less")
+    #
+    # tempResult <- t.test(x[1:n1], y[1:n2],
+    #                      alternative=alternativeOld,
+    #                      var.equal=varEqual)
+    #
+    # pValues[i] <- tempResult$p.value
+
+    tempRes <- saviTwoPropConditionalStat(
+      ya=ya, na=na, nb=nb, n1=n1,
+      logOddsRatio=designObj$esMin,
+      alternative=alternative,
+      eType="eGauss")
+
+    eValues[i] <- tempRes$eValue
+
+    tempRes <- saviFutilityTwoPropConditionalStat(
+      ya=ya, na=na, nb=nb, n1=n1,
+      logOddsRatio=designObj$futilityResult$parameter,
+      alternative=alternative)
+
+    eValuesFut[i] <- tempRes$eValue
+  }
+
+  tempRes <- list("eValues"=eValues, "eValuesFut"=eValuesFut,
+                  "pValues"=pValues)
+
+  print("Broken off function")
+  return(tempRes)
+
+  tempRes2 <- computeWorstCaseScenario1(
+    tempRes, "alpha"=alpha, "betaFutility"=betaFutility,
+    "seed"=seed, "nSim"=nSim)
+
+  res <- utils::modifyList(tempRes, tempRes2)
+
+  return(res)
+}
+
+
+saviTwoPropConditionalStat <- function(ya, na, nb, n1, logOddsRatio,
+                                       eType=c("eGauss", "grow"),
+                                       alternative=c("twoSided", "greater", "less")) {
+  res <- list("eValue"=1, "eValueApproxError"=NULL)
+
+  alternative <- match.arg(alternative)
+  eType <- match.arg(eType)
+
+  marginalNull <- BiasedUrn::dFNCHypergeo(x=ya, m1=na, m2=nb, n=n1,
+                                          odds=1)
+
+  if (eType=="grow") {
+    if (alternative %in% c("twoSided", "greater")) {
+      sPlus0 <- BiasedUrn::dFNCHypergeo(x=ya, m1=na, m2=nb, n=n1,
+                                        odds=exp(abs(logOddsRatio)))
+    }
+
+    if (alternative %in% c("twoSided", "less")) {
+      sMin0 <- BiasedUrn::dFNCHypergeo(x=ya, m1=na, m2=nb, n=n1,
+                                       odds=exp(-abs(logOddsRatio)))
+    }
+
+    eValue <- switch(alternative,
+                     "twoSided"=1/2*sPlus0/marginalNull+1/2*sMin0/marginalNull,
+                     "greater"=sPlus0/marginalNull,
+                     "less"=sMin0/marginalNull)
+
+    res[["eValue"]] <- eValue
+
+    return(res)
+  }
+
+
+  # Numerical versions
+  #
+  integrandBound <- switch(alternative,
+                           "twoSided"=c(-Inf, Inf),
+                           "greater"=c(0, Inf),
+                           "less"=c(-Inf, 0))
+
+  if (eType=="eGauss") {
+    integrand <- function(z) {
+      priorValue <- gaussPrior(z, sd=abs(logOddsRatio), alternative=alternative)
+
+      if (priorValue==0)
+        return(0)
+
+      res <- BiasedUrn::dFNCHypergeo(x=ya, m1=na, m2=nb, n=n1, odds=exp(z))*priorValue
+
+      return(res)
+    }
+
+    integrand2 <- Vectorize(integrand, vectorize.args = "z")
+
+    tempRes <- integrate(integrand2, "lower"=integrandBound[1],
+                         "upper"=integrandBound[2])
+
+    res[["eValue"]] <- tempRes[["value"]]/marginalNull
+    res[["eValueApproxError"]] <- tempRes[["abs.error"]]
+
+    return(res)
+  }
+}
+
+saviFutilityTwoPropConditionalStat <- function(
+    ya, na, nb, n1, logOddsRatio,
+    alternative=c("twoSided", "greater", "less")) {
+
+  alternative <- match.arg(alternative)
+
+  marginalNull <- BiasedUrn::dFNCHypergeo(x=ya, m1=na, m2=nb, n=n1,
+                                          odds=1)
+
+  if (alternative %in% c("twoSided", "greater")) {
+    sPlus0 <- saviTwoPropConditionalStat(
+      ya=ya, na=na, nb=nb, n1=n1, logOddsRatio=logOddsRatio,
+      alternative="greater", eType="grow")
+  }
+
+  if (alternative %in% c("twoSided", "less")) {
+    sMin0 <- saviTwoPropConditionalStat(
+      ya=ya, na=na, nb=nb, n1=n1, logOddsRatio=logOddsRatio,
+      alternative="less", eType="grow")
+  }
+
+  eValue <- switch(alternative,
+                   "greater"=sPlus0$eValue/marginalNull,
+                   "less"=sMin0$eValue/marginalNull,
+                   "twoSided"=max(sPlus0$eValue/marginalNull, sMin0$eValue/marginalNull))
+
+  res <- list(eValue=eValue)
+
+  return(res)
+}
+
+gaussPrior <- function(z, sd=1, alternative) {
+  normalisationConstant <- switch(alternative,
+                                  "twoSided"=1,
+                                  "greater"=1/2,
+                                  "less"=1/2)
+
+  if (alternative=="greater" && z < 0)
+    return(0)
+
+  if (alternative=="less" && z > 0)
+    return(0)
+
+  return(dnorm(z, mean=0, sd=sd)/normalisationConstant)
 }
