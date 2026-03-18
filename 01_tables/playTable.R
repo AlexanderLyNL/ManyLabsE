@@ -12,7 +12,19 @@ source(file.path(project.root, "00_utils", "helpers.R"))
 
 
 # fileNeem <- "Tversky_1_clean_tables.csv"
-fileNeem <- "Hauser_4_clean_tables.csv"
+
+# authorNeem <- "Rottenstreich"
+# authorNeem <- "Tversky"
+# authorNeem <- "Hauser1"
+authorNeem <- "Hauser2"
+
+fileNeem <- switch(authorNeem,
+                   Rottenstreich="Rottenstreich_1_clean_tables.csv",
+                   Tversky="Tversky_1_clean_tables.csv",
+                   Hauser1="Hauser_1_clean_tables.csv",
+                   Hauser2="Hauser_4_clean_tables.csv")
+
+# fileNeem <- "Hauser_4_clean_tables.csv"
 dat <- read.csv(file=paste0(myWd, "data/", fileNeem))
 
 dim(dat)
@@ -29,9 +41,17 @@ length(allSources)
 # Here -------
 alpha <- 0.05
 betaFutility <- alpha
-alternative <- "twoSided"
+alternative <- switch(authorNeem,
+                      Rottenstreich="less",
+                      Tversky="greater",
+                      Hauser1="twoSided",
+                      Hauser2="greater")
 # esMin <- 1.08
-esMin <- 0.34
+esMin <- switch(authorNeem,
+                Rottenstreich=0.74,
+                Tversky=1.08,
+                Hauser1=2.5,
+                Hauser2=0.34)
 futParam <- esMin
 logOddsRatio <- esMin
 
