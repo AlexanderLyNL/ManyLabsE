@@ -3506,14 +3506,17 @@ cor_test_fisherZ <- function(r1 = NULL,
   alpha <- 1 - conf.level
 
 
-  if (is.na(r2 %00% NA)) {
-    if (!is.na(n2 %00% NA)) {
-      message("Assuming 1 correlation...\n")
-      n1 <- n1 + n2
-    }
-    n2 <- NA
-  }
+  # if (class(r2))
 
+  if (!is.list(r2)) {
+    if (is.na(r2 %00% NA)) {
+      if (!is.na(n2 %00% NA)) {
+        message("Assuming 1 correlation...\n")
+        n1 <- n1 + n2
+      }
+      n2 <- NA
+    }
+  }
 
   oneCor <- FALSE
   if (all(is.null(r2), is.null(n2))) {
