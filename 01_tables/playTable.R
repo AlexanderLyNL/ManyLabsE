@@ -14,9 +14,9 @@ source(file.path(project.root, "00_utils", "helpers.R"))
 # fileNeem <- "Tversky_1_clean_tables.csv"
 
 # authorNeem <- "Rottenstreich"
-# authorNeem <- "Tversky"
+authorNeem <- "Tversky"
 # authorNeem <- "Hauser1"
-authorNeem <- "Hauser2"
+# authorNeem <- "Hauser2"
 
 fileNeem <- switch(authorNeem,
                    Rottenstreich="Rottenstreich_1_clean_tables.csv",
@@ -25,7 +25,8 @@ fileNeem <- switch(authorNeem,
                    Hauser2="Hauser_4_clean_tables.csv")
 
 # fileNeem <- "Hauser_4_clean_tables.csv"
-dat <- read.csv(file=paste0(myWd, "data/", fileNeem))
+tableFile <- paste0(myWd, "data/", fileNeem)
+dat <- read.csv(file=tableFile)
 
 dim(dat)
 head(dat)
@@ -47,28 +48,88 @@ alternative <- switch(authorNeem,
                       Hauser1="twoSided",
                       Hauser2="greater")
 # esMin <- 1.08
+# deltaMin <- switch(authorNeem,
+#                 Rottenstreich=0.74,
+#                 Tversky=1.08,
+#                 Hauser1=2.5,
+#                 Hauser2=0.34)
+
 esMin <- switch(authorNeem,
-                Rottenstreich=0.74,
-                Tversky=1.08,
-                Hauser1=2.5,
-                Hauser2=0.34)
+                Rottenstreich=0.74*pi/sqrt(3),
+                Tversky=log(4.96),
+                Hauser1=2.5*pi/sqrt(3),
+                Hauser2=0.34*pi/sqrt(3))
 futParam <- esMin
 logOddsRatio <- esMin
+#
+# esMin <- log(4.96)*sqrt(3)/pi
+# esMin <- 4.96
+
+
+
 
 designObj <- list(esMin=esMin, futilityResult=list(parameter=futParam), alternative=alternative)
 
 aap <- scenario1Table(dat, allSources, designObj)
 
-cumsum(log(aap$eValues)) >= log(1/alpha)
-cumsum(log(aap$eValuesFut)) <= log(betaFutility)
+metaE <- cumsum(log(aap$eValues))
+metaEFut <- cumsum(log(aap$eValuesFut))
+
+metaE >= log(1/alpha)
+metaEFut <= log(betaFutility)
 
 plot(log(aap$eValuesFut), type="l", col="darkgoldenrod")
 lines(1:length(aap$eValues), log(aap$eValues), col="blue")
 
 round(aap$eValues-aap$eValuesFut, 2)
+# which(round(aap$eValues-1, 6)==0)
+# which(round(aap$eValuesFut-1, 6)==0)
 
-# Total sample size -------
+yLim <- c(min(c(metaE, metaEFut)), max(c(metaE, metaEFut)))
+
+plot(metaEFut, type="l", col="darkgoldenrod", ylim=yLim)
+lines(1:length(aap$eValues), metaE, col="blue")
+abline(h=log(1/alpha))
+abline(h=log(betaFutility))
+
+log(aap$eValuesFut)[which(aap$eValues >= 1/alpha)]
+log(aap$eValues)[which(aap$eValuesFut <= betaFutility)]
+
+
+
+# Aggregate analysis -------
+## freq ----
 sum(dat$na) + sum(dat$nb)
+
+sumStatAll <- matrix(ncol=2, nrow=2)
+
+sumStatAll[1, 1] <- sum(dat$ya)
+sumStatAll[1, 2] <- sum(dat$yb)
+sumStatAll[2, 1] <- sum(dat$na)-sum(dat$ya)
+sumStatAll[2, 2] <- sum(dat$nb)-sum(dat$yb)
+
+freqTest <- fisher.test(x=sumStatAll, alternative="two.sided")
+freqTest <- fisher.test(x=sumStatAll, alternative=alternative)
+
+# Percentage
+sum(dat$ya)/sum(dat$na)
+
+# Percentage
+sum(dat$yb)/sum(dat$nb)
+freqTest$p.value
+
+# Cohen's d
+round(log(freqTest$estimate)*sqrt(3)/pi, 2)
+round(log(freqTest$conf.int)*sqrt(3)/pi, 2)
+
+
+# OR
+round(freqTest$estimate, 2)
+round(freqTest$conf.int, 2)
+
+
+
+## eValue ----
 s10 <- saviTwoPropConditionalStat(
   ya = sum(dat$ya), na = sum(dat$na), nb = sum(dat$nb),
   n1 = sum(dat$ya)+sum(dat$yb),
@@ -83,6 +144,7 @@ r1f <- saviFutilityTwoPropConditionalStat(
 
 s10$eValue
 r1f$eValue
+
 
 # BiasedUrn check-------
 
