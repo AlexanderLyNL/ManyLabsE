@@ -15,9 +15,10 @@ source(file.path(project.root, "00_utils", "helpers.R"))
 
 # ANALYSIS INFO ----
 
-study.description      <- 'Disgust & Homophobia (Inbar et al., 2009)'
-analysis.unique.id     <- 26
-analysis.name          <- 'Inbar.1a'
+
+study.description      <- 'Assimilation & Contrast (Schwarz et al., 1991)'
+analysis.unique.id     <- 68
+analysis.name          <- 'Schwarz.1a'
 analysis.type          <- 1
 analysis.type.name     <- 'study_global_include'
 analysis.type.groups   <- 'Source.Global'
@@ -57,13 +58,18 @@ ML2.id$df
 # Apply the df chain to select relevant subset of variables
 
 ML2.df <- ML2.df %>%
-  dplyr::select(2,7,165,174,382,383,389,390,391,521,522,523,524,525,526,527,528,529,530,531,532,535,536,537) %>%
+  dplyr::select(2,7,266,271,276,281,805,904,905,906,907,908,909,910,911,912,913,914,915,938,939,940) %>%
   dplyr::filter(is.character(source))
+
 
 
 # Decide which analyses to run on which groups
 toRun  <- decide.analysis(ML2.key, analysis.unique.id, analysis.type, doAll = TRUE)
 
+
+# Here ------
+
+# Create a variable indicating the study order for each case
 ML2.df$study.order <- NA
 stmp <- strsplit(ML2.df$StudyOrderN,"[|]")
 
@@ -86,7 +92,6 @@ raw.df       <- list()
 clean.df     <- list()
 cleanData    <- list()
 testVarEqual <- ML2.in$stat.params$var.equal
-g <- 1
 
 # Loop over sites in runGroups within a study
 if(analysis.type==1){
@@ -100,16 +105,21 @@ cat("\n")
 
 
 # START GROUPS ----
-# HERE -------
-
-
 # Include only datasets that have N >= Nmin.raw & n.group >= Nmin.cond
 listIT     <- FALSE
 nMin1      <- FALSE
 nMin2      <- FALSE
 compN <- compN1 <- compN2 <- 0
 
-gID <- rep(TRUE, nrow(ML2.df))
+if(analysis.type<4){
+  if(runGroups[g]=="all"){
+    gID <- rep(TRUE, nrow(ML2.df))
+  } else {
+    gID <- ML2.df$source%in%runGroups[g]
+  }
+} else {
+  gID <-  ML2.df$study.order%in%runGroups[g]
+}
 
 # Check nMin
 if(sum(gID, na.rm=TRUE) >= Nmin.raw){
@@ -119,14 +129,15 @@ if(sum(gID, na.rm=TRUE) >= Nmin.raw){
 }
 
 # Double-check nMin
-compN  <- ML2.sr[[g]]$N
-compN1 <- sum(ML2.sr[[g]]$RawDataFilter[[1]]$Included, na.rm = TRUE)
-compN2 <- sum(ML2.sr[[g]]$RawDataFilter[[2]]$Included, na.rm = TRUE)
-if(any(compN >= Nmin.raw)&(all(compN1>=Nmin.cond, compN2>=Nmin.cond))){nMin2 <- TRUE}
-
+if(nMin1){
+  compN  <- ML2.sr[[g]]$N
+  compN1 <- sum(ML2.sr[[g]]$RawDataFilter[[1]]$Included, na.rm = TRUE)
+  compN2 <- sum(ML2.sr[[g]]$RawDataFilter[[2]]$Included, na.rm = TRUE)
+  if(any(compN >= Nmin.raw)&(all(compN1>=Nmin.cond, compN2>=Nmin.cond))){nMin2 <- TRUE}
+}
 
 # Freq test ------
-ML2.var[[g]] <- varfun.Inbar.1(ML2.sr[[g]])
+ML2.var[[g]] <- varfun.Schwarz.1(ML2.sr[[g]])
 
 stat.params <<- ML2.in$stat.params
 
@@ -156,17 +167,6 @@ sum(studySummary$n)
 freqTest$value$p.value
 freqTest$value$conf.int
 
-diff(-atanh(freqTest$value$estimate))
-
-saviZTestStat(z=sqrt(studySummary$n[1]*studySummary$n[2]/sum(studySummary$n))*diff(-atanh(freqTest$value$estimate)),
-              n1=studySummary$n[1], n2=studySummary$n[2],
-              parameter=designObj$parameter)
-
-saviFutilityZStat(z=sqrt(studySummary$n[1]*studySummary$n[2]/sum(studySummary$n))*diff(-atanh(freqTest$value$estimate)),
-                  n1=studySummary$n[1], n2=studySummary$n[2],
-                  parameter=designObj$parameter)
-
-
 
 
 # Alexander ----
@@ -175,6 +175,8 @@ dat <- addSources(ML2.var, ML2.df)
 
 dat <- checkUniqueIds(dat)
 tempRes <- removeOneConditionSources(dat)
+
+
 
 allSources <- tempRes$allSources
 sampleSize <- tempRes$sampleSize
@@ -185,7 +187,7 @@ dat <- dat[dat$source %in% allSources, ]
 alpha <- 0.05
 betaFutility <- alpha
 
-deltaMin <- 0.7
+deltaMin <- 0.48
 
 varEqual <- stat.params$var.equal
 alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
@@ -198,7 +200,6 @@ designObj <- designSaviZ(meanDiffMin=deltaMin, power=0.8,
 
 designObj$testName <- "Correlation"
 
-
 alphaMeta <- alpha/4
 betaFutilityMeta <- alphaMeta
 
@@ -208,8 +209,8 @@ res1 <- metaScenario1(dat=dat, allSources=allSources, designObj=designObj,
                       betaFutilityMeta=betaFutilityMeta,
                       nSim=1e3)
 
-mean(res1$eValues >= 1/alpha)
-mean(res1$eValuesFut <= betaFutility)
+mean(res1$eValues >= 1/alphaMeta)
+mean(res1$eValuesFut <= betaFutilityMeta)
 
 res1$nStudiesAlternativeWorstCase
 res1$nStudiesFutilityWorstCase
@@ -292,11 +293,14 @@ sd(res3$futilityProportion)
 mean(res3$totalStoppingTimes)
 sd(res3$totalStoppingTimes)
 
-# save(res1, res2, res3, file="inbar1Result.RData")
+# save(res1, res2, res3, file="schwarz1Result.RData")
+
 
 # Plus -------
 alpha <- 0.05
 betaFutility <- alpha
+
+deltaMin <- 0.48
 
 varEqual <- stat.params$var.equal
 alternative <- "greater"
@@ -399,4 +403,4 @@ sd(res3Plus$futilityProportion)
 mean(res3Plus$totalStoppingTimes)
 sd(res3Plus$totalStoppingTimes)
 
-# save(res1Plus, res2Plus, res3Plus, file="inbar1PlusResult.RData")
+# save(res1Plus, res2Plus, res3Plus, file="schwarz1PlusResult.RData")

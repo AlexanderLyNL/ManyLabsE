@@ -2,64 +2,121 @@ library(devtools)
 library(plyr)
 library(rio)
 library(tidyverse)
+library(reshape2)
+library(stats)
+rm(list = ls())
+
+# set.seed(123)
+#
+# setwd("/home/areyerol/Bureau/futility/ManyLabsE/03_zTest")
+#
+# library(safestats)
+# repo.path <- "/home/areyerol/Bureau/git/safestats-futility88"
+# load_all(repo.path)
 
 
-sourcePath <- if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "/Desktop/git/"
-myWd <-  if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "~/Desktop/git/manyLabsE/02_tTest/"
+sourcePath <- if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("are", "Are")) {
+  "Bureau/futility"
+} else if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) {
+  "/Desktop/git/"
+}
 
-project.root <- file.path("~", sourcePath, "manyLabsE")
+
+myWd <- if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("are", "Are")) {
+  "/home/areyerol/Bureau/futility/ManyLabsE/03_zTest" #"~/Desktop/git/manyLabsE/02_tTest/"
+} else if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) {
+  "~/Desktop/git/manyLabsE/03_zTest/"
+}
+
+project.root <- file.path("~", sourcePath, "ManyLabsE")
 OSFdata.root <- file.path(project.root, "OSFdata")
 
 source(file.path(project.root, "00_utils", "WYQ_manylabRs_SOURCE.R"))
 source(file.path(project.root, "00_utils", "helpers.R"))
 
 # ANALYSIS INFO ----
-
-
-study.description      <- 'Position & Power (Giessner & Schubert, 2007)'
-analysis.unique.id     <- 45
-analysis.name          <- 'Giessner.1'
+study.description      <- 'Social Value Orientation (Van Lange et al., 1997)'
+analysis.unique.id     <- 38
+analysis.name          <- 'vanLange.1'
 analysis.type          <- 1
 analysis.type.name     <- 'study_global_include'
 analysis.type.groups   <- 'Source.Global'
 Nmin.raw               <- 30
 Nmin.cond              <- 15
 subset                 <- 'all'
-subset.type <- "all"
-saveAll <- FALSE
+onlineTables           <- TRUE
+staticData             <- TRUE
+
+saveAll                <- FALSE
+overWrite              <- FALSE
+#OSFdata.root           <- paste0(myWd, "ManyLabsE/", "OSFdata") #file.path('~','OSFdata')
+analysis.root          <- file.path(OSFdata.root,study.description,analysis.name,'Global')
+outdir                 <- list(Data = file.path(analysis.root,'Data'), Results = file.path(analysis.root,'Results'))
+
+
+# This function will be used to change the raw dataset to a dataset ready for analysis
+
+varfun.vanLange.1
+
+
+if(dplyr::between(analysis.type,2,3)){subset <- "all"}
 
 # GET LOOKUP TABLES ----
-ML2.key <- rio::import(file.path(project.root, "00_data", "ML2_KeyTable.csv"))
-ML2.key <- ML2.key[!is.na(ML2.key$unique.id) & ML2.key$unique.id == analysis.unique.id, ]
-SourceInfoTable <- rio::import(file.path(OSFdata.root, "!!KeyTables", "ML2_SourceInfo - ML2_SourceInfo.csv"))
 
-# Get the correct slate according to info in ML2.key['study.slate']
-if (ML2.key$study.slate == 1) {
-  ML2.df <- rio::import(file.path(OSFdata.root, "!!RawData", "ML2_S1.csv"))
+if(onlineTables){
+  # Get the Keytable with analysis information
+  ML2.key <- get.GoogleSheet(data='ML2masteRkey')$df
+  ML2.key <- ML2.key[!is.na(ML2.key$unique.id)&ML2.key$unique.id==analysis.unique.id,]
+
+  # Get info about the sites
+  SourceInfoTable    <- get.GoogleSheet(url = "https://docs.google.com/spreadsheets/d/1Qn_kVkVGwffBAmhAbpgrTjdxKLP1bb2chHjBMVyGl1s/pub?gid=1435507167&single=true&output=csv")$df
 } else {
-  ML2.df <- rio::import(file.path(OSFdata.root, "!!RawData", "ML2_S2.csv"))
+  # Get the Keytable with analysis information
+  ML2.key <- rio::import(file.path(OSFdata.root,"!!KeyTables","ML2_KeyTable.csv"))
+  ML2.key <- ML2.key[!is.na(ML2.key$unique.id)&ML2.key$unique.id==analysis.unique.id,]
+
+  # Get info about the sites
+  SourceInfoTable    <- rio::import(file.path(OSFdata.root,"!!KeyTables","ML2_SourceInfoTable.csv"))
 }
 
+# GET DATA ----
 
+if(!staticData){
+  # CANNOT TEST UNTIL OSF DATA ARE PUBLIC
+  # Get the correct slate according to info in ML2.key['study.slate']
+  if(ML2.key[study,'study.slate'] == 1){
+    data <- osfr::download_files(id = 'cwjp3', path =  getwd())
+  } else {
+    data <- osfr::download_files(id = 'jg9hc', path =  getwd())
+  }
+  ML2.df <- rio::import(data)
+  disp(paste("Downloaded data from OSF"), header = FALSE, footer = FALSE)
+} else {
+  # Get the correct slate according to info in ML2.key['study.slate']
+  if(ML2.key$study.slate == 1){
+    ML2.df <- rio::import(file.path(OSFdata.root,"!!RawData","ML2_Slate1.csv"))
+  } else {
+    ML2.df <- rio::import(file.path(OSFdata.root,"!!RawData","ML2_Slate2.csv"))
+  }
+}
 
 # PREPARE DATA & OUTPUT ----
+
 # Add a unique ID
-ML2.df$uID <- seq(1, nrow(ML2.df))
+ML2.df$uID = seq(1, nrow(ML2.df))
 
 # Get info to create a dataset for the current study
-ML2.in <- get.info(ML2.key, colnames(ML2.df), subset.type)
+# keytable <- ML2.key
+ML2.in <- get.info(ML2.key, colnames(ML2.df), subset)
 
 # Generate chain to select variables for the data frame and create a filter chain for the variables to use for analysis
 # Info based on KeyTable information in study.vars, cases.include, site.include, params.NA
 ML2.id <- get.chain(ML2.in)
 
-ML2.df
+# Apply the df chain to select relevant subset of variables
 
+ML2.df <- ML2.df  %>% dplyr::select(1,6,343,344,345,346,347,348,353,354,520,521,522,523,524,525,526,527,528,529,530,531,534,535,536) %>% dplyr::filter(is.character(source))
 
-
-ML2.df <- ML2.df %>%
-  dplyr::select(2,7,247,252,257,258,259,260,261,805,904,905,906,907,908,909,910,911,912,913,914,915,938,939,940) %>%
-  dplyr::filter(is.character(source))
 
 
 # Decide which analyses to run on which groups
@@ -131,8 +188,6 @@ if(length(toRun$studiess)>0){
         ML2.sr[[g]] <- get.sourceData(ML2.id, ML2.df[gID, ], ML2.in)
       }
 
-
-
       # Double-check nMin
       if(nMin1){
         compN  <- ML2.sr[[g]]$N
@@ -145,8 +200,8 @@ if(length(toRun$studiess)>0){
 
       if(all(nMin1,nMin2)){
 
-# To see the function code type:varfun.Giessner.1, or lookup in manylabRs_SOURCE.R
-ML2.var[[g]] <- varfun.Giessner.1(ML2.sr[[g]])
+        # To see the function code type:varfun.vanLange.1, or lookup in manylabRs_SOURCE.R
+        ML2.var[[g]] <- varfun.vanLange.1(ML2.sr[[g]])
 
 
         # Check equal variance assumption
@@ -160,7 +215,7 @@ ML2.var[[g]] <- varfun.Giessner.1(ML2.sr[[g]])
         stat.params <<- ML2.in$stat.params
 
 
-stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = Long, y = Short, conf.level=stat.params$conf.level, var.equal = stat.params$var.equal, alternative = stat.params$alternative)))
+        stat.test   <- try.CATCH(with(ML2.var[[g]],cor_test_fisherZ(r1=matrix(c(SVO.index,Siblings),ncol=2), r2=NULL, n1=N[1], n2=NULL, conf.level=stat.params$conf.level, alternative = stat.params$alternative)))
 
 
         # Check for errors and warnings
@@ -217,28 +272,28 @@ stat.test   <- try.CATCH(with(ML2.var[[g]],t.test(x = Long, y = Short, conf.leve
 
 
 
-SourceInfo <- raw.df[[g]] %>% dplyr::filter(case.include) %>%
-dplyr::summarise(
-  N.sources.global    = length(unique(Source.Global)),
-  N.sources.primary   = length(unique(Source.Primary)),
-  N.sources.secondary = length(unique(Source.Secondary)),
-  N.countries         = length(unique(Country)),
-  N.locations         = length(unique(Location)),
-  N.languages         = length(unique(Language)),
-  Pct.WEIRD           = mean(Weird, na.rm=TRUE)*100,
-  Tbl.Execution       = paste0(capture.output(table(Execution)),collapse='\n'),
-  Tbl.subjectpool     = paste0(capture.output(table(SubjectPool)),collapse='\n'),
-  Tbl.setting       = paste0(capture.output(table(Setting)),collapse='\n'),
-  Tbl.Tablet        = paste0(capture.output(table(Tablet)),collapse='\n'),
-  Tbl.Pencil        = paste0(capture.output(table(Pencil)),collapse='\n'),
-  N.studyorders1    = length(unique(StudyOrderN)),
-  N.IDiffOrderN     = length(unique(IDiffOrderN)),
-  N.uIDs            = length(unique(uID)),
-  N.studyorders2    = length(unique(study.order)),
-  Tbl.analysistype  = paste0(capture.output(table(analysis.type)),collapse='\n'),
-  Tbl.subset        = paste0(capture.output(table(subset)),collapse='\n'),
-  N.cases.included  = sum(case.include, na.rm=TRUE),
-  N.cases.excluded  = sum(case.include==FALSE,na.rm=TRUE))
+          SourceInfo <- raw.df[[g]] %>% dplyr::filter(case.include) %>%
+            dplyr::summarise(
+              N.sources.global    = length(unique(Source.Global)),
+              N.sources.primary   = length(unique(Source.Primary)),
+              N.sources.secondary = length(unique(Source.Secondary)),
+              N.countries         = length(unique(Country)),
+              N.locations         = length(unique(Location)),
+              N.languages         = length(unique(Language)),
+              Pct.WEIRD           = mean(Weird, na.rm=TRUE)*100,
+              Tbl.Execution       = paste0(capture.output(table(Execution)),collapse='\n'),
+              Tbl.subjectpool     = paste0(capture.output(table(SubjectPool)),collapse='\n'),
+              Tbl.setting       = paste0(capture.output(table(Setting)),collapse='\n'),
+              Tbl.Tablet        = paste0(capture.output(table(Tablet)),collapse='\n'),
+              Tbl.Pencil        = paste0(capture.output(table(Pencil)),collapse='\n'),
+              N.studyorders1    = length(unique(StudyOrderN)),
+              N.IDiffOrderN     = length(unique(IDiffOrderN)),
+              N.uIDs            = length(unique(uID)),
+              N.studyorders2    = length(unique(study.order)),
+              Tbl.analysistype  = paste0(capture.output(table(analysis.type)),collapse='\n'),
+              Tbl.subset        = paste0(capture.output(table(subset)),collapse='\n'),
+              N.cases.included  = sum(case.include, na.rm=TRUE),
+              N.cases.excluded  = sum(case.include==FALSE,na.rm=TRUE))
 
 
 
@@ -392,107 +447,48 @@ dplyr::summarise(
     #rm(ML2.in, ML2.var, ML2.id, ML2.df, ML2.sr)
   }
 }
-
-# Freq test ------
-
-# ML2.id$vars
-varNames <- c("geis.dv_1", "geis.dv_2", "geis.dv_3", "geis.dv_4", "geis.dv_5")
-
-rawDat <- ML2.rawdata
-
-longIndex <- which(!is.na(rawDat$geis1.1))
-
-for (var in varNames) {
-  longIndex <- setdiff(longIndex, which(is.na(rawDat[[var]])))
-}
-
-shortIndex <- which(!is.na(rawDat$geis2.1))
-
-for (var in varNames) {
-  shortIndex <- setdiff(shortIndex, which(is.na(rawDat[[var]])))
-}
-
-longDat <- rawDat[longIndex, ]
-shortDat <- rawDat[shortIndex, ]
+stat.test$estimate
 
 
-longVar <- rowMeans(longDat[, varNames])
-shortVar <- rowMeans(shortDat[, varNames])
-
-length(c(longVar, shortVar))
-
-rawDat$variable <- 1
-rawDat$factor <- "1"
-
-rawDat[longIndex, "variable"] <- longVar
-rawDat[shortIndex, "variable"] <- shortVar
-rawDat[longIndex, "factor"] <- "Long"
-rawDat[shortIndex, "factor"] <- "Short"
-
-rawDat$uID
-
-cleanDat <- rawDat[c(longIndex, shortIndex), c("uID", "variable", "factor")]
-
-
-stat.params <<- ML2.in$stat.params
-freqRes <- t.test(variable ~ factor, data = cleanDat, var.equal = stat.params$var.equal)
-
-studySummary <- cleanDat %>%
-  group_by(factor) %>%
-  summarise(
-    n = n(),
-    mean = mean(variable, na.rm = TRUE),
-    sd = sd(variable, na.rm=TRUE)
-  )
-
-
-
-sum(studySummary$n)
-studySummary$mean
-studySummary$sd
-
-freqRes$statistic
-freqRes$p.value
-freqRes$statistic*sqrt(sum(studySummary$n)/prod(studySummary$n))
-
-# Alexander ----
-dat <- addSources(ML2.var, ML2.df)
-# stat.params <<- ML2.in$stat.params
-# save(dat, stat.params, file="giessner.RData")
-
+# Alexander -------
+dat <- addUniqueIds(ML2.var, ML2.df)
 dat <- checkUniqueIds(dat)
-tempRes <- removeOneConditionSources(dat)
-
-allSources <- tempRes$allSources
-sampleSize <- tempRes$sampleSize
-
-dat <- dat[dat$source %in% allSources, ]
-
-if (stat.params$alternative=="two.sided")
-  stat.params$alternative <- "twoSided"
-
-
+head(dat)
 # Here -------
+
+
 alpha <- 0.05
 betaFutility <- alpha
-deltaMin <- 0.48
-varEqual <- stat.params$var.equal
-power <- 0.8
-alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
-wantCi <- FALSE
 
-set.seed(1234)
-designObj <- designSaviT(alpha=alpha, power=power,
-                         deltaMin=deltaMin, futility=TRUE,
-                         betaFutility=betaFutility,
-                         varEqual=varEqual, testType="twoSample",
-                         alternative=alternative)
+#rOri <- 0.25
+deltaMin <- 0.19#2*rOri/sqrt(1-rOri^2)
 
-# Scenario 1 ----
-res1 <- metaScenario1(dat=dat, allSources=allSources, designObj=designObj,
-                      nuMin=3, alphaMeta=alphaMeta,
-                      betaFutilityMeta=betaFutilityMeta,
-                      nSim=1e3)
+# Here -------
+
+alpha <- 0.05
+betaFutility <- alpha
+
+
+
+designObj <- designSaviZ(
+  meanDiffMin=deltaMin, beta=0.05,
+  testType="oneSample",
+  alternative="twoSided", seed=5,
+  futility = TRUE)
+
+allSources <- unique(dat$source)
+
+
+
+# Scenario 1
+
+alternative = "twoSided"
+
+allSources = unique(dat$source)
+res1 <- scenario1ZCorr(dat=dat, allSources=allSources, designObj=designObj, alpha=alpha, betaFutility=betaFutility,
+                       nSim=1e3, alternative=alternative)
+
+
 
 mean(res1$eValues >= 1/alpha)
 mean(res1$eValuesFut <= betaFutility)
@@ -517,9 +513,11 @@ sd(res1$logMetaEFut)
 mean(res1$totalStoppingTimes)
 sd(res1$totalStoppingTimes)
 
-# Scenario 2-----
-res2 <- metaScenario2(dat=dat, allSources=allSources,
-                      designObj=designObj, seed=1, nSim=1e3L)
+
+# Scenario 2
+
+
+res2 <- scenario2ZCorr(dat, allSources, designObj=designObj, seed=1, nSim = 50) # nSim=1e3)
 
 logMetaE<- rowSums(log(res2$eValues))
 mean(logMetaE)
@@ -539,13 +537,12 @@ sd(res2$futilityProportion)
 mean(res2$totalStoppingTimes)
 sd(res2$totalStoppingTimes)
 
-#Scenario 3 ------
-
-res3 <- metaScenario3(dat=dat, allSources=allSources, designObj=designObj,
-                      alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
-                      nuMin=nuMin, nSim=1e3L)
+# Scenario 3
 
 
+res3 <- scenario3ZCorr(dat=dat, allSources=allSources, designObj=designObj,
+                       alpha=alpha, betaFutility=betaFutility,
+                       nuMin=nuMin, nSim = 50) #nSim=1e3L)
 
 mean(res3$logMetaE)
 sd(res3$logMetaE)
@@ -561,5 +558,3 @@ sd(res3$futilityProportion)
 
 mean(res3$totalStoppingTimes)
 sd(res3$totalStoppingTimes)
-
-# save(res1, res2, res3, file="giessner1Result.RData")

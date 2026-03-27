@@ -429,8 +429,8 @@ sampleSize <- tempRes$sampleSize
 
 dat <- dat[dat$source %in% allSources, ]
 
-if (stat.params$alternative=="two.sided")
-  stat.params$alternative <- "twoSided"
+# if (stat.params$alternative=="two.sided")
+#   stat.params$alternative <- "twoSided"
 
 # Here -------
 alpha <- 0.05
@@ -438,16 +438,24 @@ betaFutility <- alpha
 deltaMin <- 0.63
 varEqual <- stat.params$var.equal
 alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
+wantCi <- FALSE
 
-designObj <- designSaviT(alpha=alpha, power=0.8,
-  deltaMin=deltaMin, futility=TRUE,
-  varEqual=varEqual, testType="twoSample",
-  alternative=alternative)
+alphaMeta <- alpha/4
+betaFutilityMeta <- alphaMeta
+
+set.seed(1234)
+designObj <- designSaviT(alpha=alpha, power=power,
+                         deltaMin=deltaMin, futility=TRUE,
+                         betaFutility=betaFutility,
+                         varEqual=varEqual, testType="twoSample",
+                         alternative=alternative)
 
 # Scenario 1 ----
-res1 <- scenario1T(dat=dat, allSources=allSources, designObj=designObj,
-                   nuMin=3, alpha=alpha, betaFutility=betaFutility,
-                   nSim=1e3, alternative=alternative)
+res1 <- metaScenario1(dat=dat, allSources=allSources, designObj=designObj,
+                      nuMin=3, alphaMeta=alphaMeta,
+                      betaFutilityMeta=betaFutilityMeta,
+                      nSim=1e3)
+
 
 mean(res1$eValues >= 1/alpha)
 mean(res1$eValuesFut <= betaFutility)
@@ -473,7 +481,11 @@ mean(res1$totalStoppingTimes)
 sd(res1$totalStoppingTimes)
 
 # Scenario 2-----
-res2 <- scenario2T(dat, allSources, designObj=designObj, seed=1, nSim=1e3)
+res2 <- metaScenario2(dat=dat, allSources=allSources,
+                      designObj=designObj, seed=1, nSim=1e3L)
+
+res2$nSamples[, 1]
+res2b$nSamples[, 1]
 
 logMetaE<- rowSums(log(res2$eValues))
 mean(logMetaE)
@@ -494,10 +506,9 @@ mean(res2$totalStoppingTimes)
 sd(res2$totalStoppingTimes)
 
 #Scenario 3 ------
-
-res3 <- scenario3T(dat=dat, allSources=allSources, designObj=designObj,
-                   alpha=alpha, betaFutility=betaFutility,
-                   nuMin=nuMin, nSim=1e3L, wantCi=wantCi)
+res3 <- metaScenario3(dat=dat, allSources=allSources, designObj=designObj,
+                      alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
+                      nuMin=nuMin, nSim=1e3L)
 
 mean(res3$logMetaE)
 sd(res3$logMetaE)
