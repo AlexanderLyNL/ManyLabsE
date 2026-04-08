@@ -176,19 +176,23 @@ metaScenario1 <- function(dat, allSources, designObj,
   factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
 
   for (i in 1:length(allSources)) {
-    someDat <- dat[dat$source==allSources[i], ]
+    someDat <- dat[dat[["source"]]==allSources[i], ]
 
     if (designObj[["testName"]]=="T-Test") {
       tempRes <- scenario1TTestHelp(
         "someDat"=someDat, "designObj"=designObj,
         "factorLevels"=factorLevels, "wantCi"=wantCi, "nuMin"=nuMin)
-    } else if (designObj[["testName"]]=="Z-Test") {
+    } else if (designObj[["testName"]]=="Binomial") {
       stop("Z-test not yet done")
+      tempRes <- scenario1BinomialHelp(
+        "someDat"=someDat, "designObj"=designObj)
     } else if (designObj[["testName"]]=="2x2") {
-      stop("2x2 not yet done")
+      tempRes <- scenario12x2Help(
+        "someDat"=someDat, "designObj"=designObj)
     } else if (designObj[["testName"]]=="Correlation") {
-      tempRes <- scenario1CorHelp("someDat"=someDat, "designObj"=designObj,
-                                  "factorLevels"=factorLevels)
+      tempRes <- scenario1CorHelp(
+        "someDat"=someDat, "designObj"=designObj,
+        "factorLevels"=factorLevels)
     }
 
     n1Vec[i] <- tempRes[["n1"]]
@@ -615,7 +619,7 @@ computeScenario3TOneSim <- function(
 
   nTotal <- length(dat$uID)
 
-  set.seed(seed)
+  # set.seed(seed)
   someOrder <- sample(unique(dat$uID), nTotal)
 
   # meta eValues are all 1 at the start
@@ -717,7 +721,7 @@ metaScenario3 <- function(dat, allSources, designObj, alphaMeta=0.05,
         dat=dat, allSources=allSources, designObj=designObj,
         alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
         nuMin=nuMin, nSim=nSim,
-        wantCi=wantCi, nPlanLimit=nPlanLimit, seed=seed+i)
+        wantCi=wantCi, nPlanLimit=nPlanLimit)
     } else if (designObj[["testName"]]=="Z-Test") {
       stop("Z-test not yet done")
     } else if (designObj[["testName"]]=="2x2") {
@@ -819,6 +823,59 @@ scenario1Table <- function(dat, allSources, designObj,
   return(res)
 }
 
+scenario12x2Help <- function(someDat, designObj) {
+  res <- list(eValue=NULL, eValueFut=NULL, n1=NULL, n2=0, pValue=NULL)
+
+  ## Data ---
+  na <- someDat[["na"]]
+  nb <- someDat[["nb"]]
+  ya <- someDat[["ya"]]
+  yb <- someDat[["yb"]]
+
+  n1 <- ya+yb
+  nTotal <- na+nb
+
+  if (length(n1)==0 || nTotal==0)
+    return(list(eValue=1, eValueFut=1, n1=0, n2=0, pValue=1))
+
+  # Frequentist analysis
+  #
+  alternativeOld <- switch(alternative,
+                           "twoSided"="two.sided",
+                           "greater"="greater",
+                           "less"="less")
+
+  someMatrix <- matrix(ncol=2, nrow=2)
+
+  someMatrix[1, 1] <- ya
+  someMatrix[1, 2] <- yb
+  someMatrix[2, 1] <- na - ya
+  someMatrix[2, 2] <- nb - yb
+
+  freqTest <- fisher.test(x=someMatrix, alternative=alternative)
+
+  res[["pValue"]] <- freqTest[["p.value"]]
+
+
+  tempRes <- saviTwoPropConditionalStat(
+    ya=ya, na=na, nb=nb, n1=n1,
+    logOddsRatio=designObj[["esMin"]],
+    alternative=designObj[["alternative"]],
+    eType=designObj[["eGauss"]])
+
+  res[["eValue"]] <- tempRes[["eValue"]]
+
+  tempRes <- saviFutilityTwoPropConditionalStat(
+    ya=ya, na=na, nb=nb, n1=n1,
+    logOddsRatio=designObj[["futilityResult"]][["parameter"]],
+    alternative=designObj[["alternative"]])
+
+  res[["eValueFut"]] <- tempRes[["eValue"]]
+
+  res[["n1"]] <- nTotal
+
+  return(res)
+}
 
 saviTwoPropConditionalStat <- function(ya, na, nb, n1, logOddsRatio,
                                        eType=c("eGauss", "grow"),

@@ -33,11 +33,15 @@ head(dat)
 
 
 # allSources <- checkEnoughDataInTable(dat)$allSources
-allSources <- unique(dat$sites)
-dat <- dat[dat$sites %in% allSources, ]
+names(dat)
+names(dat) <- c("source", "ya", "yb", "na", "nb")
+allSources <- unique(dat$source)
+dat <- dat[dat$source %in% allSources, ]
 
 length(allSources)
 
+
+head(dat)
 
 # Here -------
 alpha <- 0.05
@@ -68,9 +72,14 @@ logOddsRatio <- esMin
 
 
 
-designObj <- list(esMin=esMin, futilityResult=list(parameter=futParam), alternative=alternative)
+designObj <- list(esMin=esMin, futilityResult=list(parameter=futParam),
+                  alternative=alternative,
+                  testName="2x2")
 
-aap <- scenario1Table(dat, allSources, designObj)
+# aap <- scenario1Table(dat, allSources, designObj)
+
+aap <- metaScenario1(dat, allSources, designObj)
+
 
 metaE <- cumsum(log(aap$eValues))
 metaEFut <- cumsum(log(aap$eValuesFut))

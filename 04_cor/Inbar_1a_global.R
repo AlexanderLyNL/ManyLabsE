@@ -199,7 +199,7 @@ designObj <- designSaviZ(meanDiffMin=deltaMin, power=0.8,
 designObj$testName <- "Correlation"
 
 
-alphaMeta <- alpha/4
+alphaMeta <- alpha^4
 betaFutilityMeta <- alphaMeta
 
 # Scenario 1 ----
@@ -265,7 +265,7 @@ sd(res2$totalStoppingTimes)
 #Scenario 3 ------
 res3 <- metaScenario3(dat=dat, allSources=allSources, designObj=designObj,
                       alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
-                      nEffMin=2, nuMin=nuMin, nSim=1e3L, wantCi=wantCi, seed=1)
+                      nEffMin=2, nuMin=nuMin, nSim=10, wantCi=wantCi, seed=1)
 
 mean(res3$logMetaE >= log(1/alphaMeta))
 sd(res3$logMetaE >= log(1/alphaMeta))
