@@ -3,7 +3,6 @@ library(plyr)
 library(rio)
 library(tidyverse)
 
-
 sourcePath <- if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "/Desktop/git/"
 myWd <-  if (substr(system("whoami", intern=TRUE), 1, 3) %in% c("ale", "Ale")) "~/Desktop/git/manyLabsE/02_tTest/"
 
@@ -446,6 +445,9 @@ power <- 0.8
 alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
 wantCi <- FALSE
 
+alphaMeta <- alpha^4
+betaFutilityMeta <- alphaMeta
+
 set.seed(1234)
 designObj <- designSaviT(alpha=alpha, power=power,
                          deltaMin=deltaMin, futility=TRUE,
@@ -510,6 +512,9 @@ res3 <- metaScenario3(dat=dat, allSources=allSources, designObj=designObj,
                       alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
                       nuMin=nuMin, nSim=1e3L)
 
+res3 <- metaScenario3(dat=dat, allSources=allSources, designObj=designObj,
+                      alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
+                      nuMin=nuMin, nSim=10)
 
 
 mean(res3$logMetaE)

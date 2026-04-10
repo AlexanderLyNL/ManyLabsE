@@ -1,6 +1,8 @@
 library(devtools)
 library(plyr)
 library(rio)
+
+
 library(tidyverse)
 
 
@@ -13,6 +15,168 @@ OSFdata.root <- file.path(project.root, "OSFdata")
 source(file.path(project.root, "00_utils", "WYQ_manylabRs_SOURCE.R"))
 source(file.path(project.root, "00_utils", "helpers.R"))
 
+debugonce(saviTTest)
+
+bep1$designObjList$knobe$bootObjN1Plan$data
+
+bep1 <- manyLabsMetaScenarios1(1, nSim=1e3L)
+bep2 <- manyLabsMetaScenarios1(2,
+                               designObjList=bep1$designObjList,
+                               nSim=1e3L)
+
+bep3 <- manyLabsMetaScenarios1(3,
+                               designObjList=bep1$designObjList,
+                               nSim=1e3L)
+
+bep1$resultTable
+bep2$resultTable
+bep3$resultTable
+
+
+manyLabsMetaScenarios1 <- function(
+    metaScenario=1, deltaMinFactor=0.7,
+    alternative="greater", nSim=100,
+    alpha=0.05, betaFutility=alpha,
+    alphaMeta=alpha^4, betaFutilityMeta=alphaMeta,
+    wantCi=FALSE, seed=1234, nuMin=3,
+    designObjList=NULL, ...)  {
+
+  studyNames <- c("knobe", "ross1", "gray", "ross2",
+                  "norenzayan", "hsee", "huang", "kay",
+                  "risen", "bauer", "critcher", "giessner",
+                  "gati", "zhong", "alter",
+                  "zaval", "anderson")
+
+  deltaMinList <- list("knobe"=1.45, "ross1"=0.99, "gray"=0.8,
+                       "ross2"=0.8, "norenzayan"=0.35, "hsee"=0.69,
+                       "huang"=0.68, "kay"=0.49, "risen"=0.39,
+                       "bauer"=0.87, "critcher"=0.3, "giessner"=0.48,
+                       "gati"=0.48, "zhong"=1.02, "alter"=0.63, "zaval"=0.31,
+                       "anderson"=0.57)
+
+  nStudies <- length(studyNames)
+
+
+
+  individualResultList <- vector(mode="list", nStudies)
+  names(individualResultList) <- studyNames
+
+  if (is.null(designObjList))
+    designObjList <- individualResultList
+
+  if (metaScenario==1) {
+    nCol <- 7
+  } else if (metaScenario==2) {
+    nCol <- 7
+  } else if (metaScenario==3) {
+    nCol <- 5
+  }
+
+  resultTable <- matrix(nrow=length(studyNames), ncol=nCol)
+
+  for (i in seq_along(studyNames)) {
+    studyNeem <- studyNames[i]
+
+    if (studyNeem=="gati")
+      next()
+
+    testType <- if (studyNeem=="gati") "oneSample" else "twoSample"
+
+    ### Data -------
+    # TODO(Alexander): ------
+    #     Add the data to the data folder of the package
+    #
+    load(paste0(myWd, studyNeem, ".RData"))
+
+    dat <- checkUniqueIds(dat)
+
+    if (studyNeem!="gati")
+      tempRes <- removeOneConditionSources(dat)
+
+    allSources <- tempRes$allSources
+    sampleSize <- tempRes$sampleSize
+
+    dat <- dat[dat$source %in% allSources, ]
+
+    ### Study param setting ----
+    varEqual <- stat.params$var.equal
+
+    deltaMin <- deltaMinList[[studyNeem]]
+    deltaMin <- deltaMin*deltaMinFactor
+
+    ### designObj ------
+    designObj <- designObjList[[studyNeem]]
+
+    if (is.null(designObj)) {
+      designObj <- designSaviT(alpha=alpha, power=power,
+                               deltaMin=deltaMin, futility=TRUE,
+                               betaFutility=betaFutility,
+                               varEqual=varEqual, testType=testType,
+                               alternative=alternative, seed=seed)
+
+      designObjList[[studyNeem]] <- designObj
+    }
+
+    ### analysis ------
+    #
+    if (metaScenario==1) {
+      res <- metaScenario1(
+        dat=dat, allSources=allSources,
+        designObj=designObj, seed=seed,
+        nuMin=nuMin, alphaMeta=alphaMeta,
+        betaFutilityMeta=betaFutilityMeta, nSim=nSim)
+
+      resultTable[i, 1] <- mean(res[["logMetaE"]])
+      resultTable[i, 2] <- mean(res[["logMetaEFut"]])
+      resultTable[i, 3] <- mean(res[["eValues"]] >= 1/alpha)
+      resultTable[i, 4] <- mean(res[["eValuesFut"]] <= beta)
+      resultTable[i, 5] <- mean(res[["totalStoppingTimes"]])
+
+      resultTable[i, 7] <- dim(dat)[1]
+      resultTable[i, 6] <- resultTable[i, 5]/resultTable[i, 7]*100
+
+    } else if (metaScenario==2) {
+      res <- metaScenario2(
+        dat=dat, allSources=allSources,
+        designObj=designObj, seed=seed,
+        nuMin=nuMin, nSim=nSim)
+
+      resultTable[i, 1] <- mean(res[["logMetaE"]])
+      resultTable[i, 2] <- mean(res[["logMetaEFut"]])
+      resultTable[i, 3] <- mean(res[["alternativeProportion"]])
+      resultTable[i, 4] <- mean(res[["futilityProportion"]])
+      resultTable[i, 5] <- mean(res[["totalStoppingTimes"]])
+
+      resultTable[i, 7] <- dim(dat)[1]
+      resultTable[i, 6] <- resultTable[i, 5]/resultTable[i, 7]*100
+    } else if (metaScenario==3) {
+      res <- metaScenario3(
+        dat=dat, allSources=allSources,
+        designObj=designObj, alphaMeta=alphaMeta,
+        betaFutilityMeta=betaFutilityMeta, nuMin=nuMin,
+        nSim=nSim, seed=seed)
+
+      resultTable[i, 1] <- mean(res[["logMetaE"]])
+      resultTable[i, 2] <- mean(res[["logMetaEFut"]])
+      resultTable[i, 3] <- mean(res[["totalStoppingTimes"]])
+      resultTable[i, 5] <- dim(dat)[1]
+      resultTable[i, 4] <- resultTable[i, 3]/resultTable[i, 5]*100
+    } else {
+      stop("Only metaScenario %in% c(1, 2, 3) available")
+    }
+
+    individualResultList[[studyNeem]] <- res
+  }
+
+  resultTable <- as.data.frame(resultTable)
+  rownames(resultTable) <- studyNames
+
+  res <- list(resultTable=resultTable, designObjList=designObjList, individualResultList=individualResultList)
+
+  class(res) <- "saviManyLabs2"
+  return(res)
+}
+
 # Setting all ----
 alpha <- 0.05
 betaFutility <- alpha
@@ -22,6 +186,14 @@ alphaMeta <- alpha^4
 betaFutilityMeta <- alphaMeta
 nSim <- 10
 
+
+
+studyNames <- c("knobe", "ross1", "gray", "ross2",
+                "norenzayan", "hsee", "huang", "kay",
+                "risen", "bauer", "critcher", "giessner",
+                "gati", "zhong", "alter",
+                "zaval", "anderson")
+
 deltaMinList <- list("knobe"=1.45, "ross1"=0.99, "gray"=0.8,
                      "ross2"=0.8, "norenzayan"=0.35, "hsee"=0.69,
                      "huang"=0.68, "kay"=0.49, "risen"=0.39,
@@ -29,14 +201,33 @@ deltaMinList <- list("knobe"=1.45, "ross1"=0.99, "gray"=0.8,
                      "gati"=0.48, "zhong"=1.02, "alter"=0.63, "zaval"=0.31,
                      "anderson"=0.57)
 
-
-doScenario1 <- function(dataSetName, deltaMinFactor=0.7,
+doScenario1 <- function(studyNames, deltaMinFactor=0.7,
                         alternative="greater", deltaMinList,
                         nSim=100, alpha=0.05, betaFutility=alpha,
                         alphaMeta=alpha^4, betaFutilityMeta=alphaMeta)  {
 
-  deltaMin <- deltaMinList[[dataSetName]]
-  deltaMin <- deltaMin*deltaMinFactor
+  for (i in seq_along(studyNames)) {
+    studyNeem <- studyNames[i]
+
+    ### Data -------
+    load(paste0(myWd, studyNeem, "RData"))
+
+    dat <- checkUniqueIds(dat)
+    tempRes <- removeOneConditionSources(dat)
+
+    allSources <- tempRes$allSources
+    sampleSize <- tempRes$sampleSize
+
+    dat <- dat[dat$source %in% allSources, ]
+
+    ### deltaMin Study setting ----
+    deltaMin <- deltaMinList[[dataSetName]]
+    deltaMin <- deltaMin*deltaMinFactor
+
+    varEqual <- stat.params$var.equal
+  }
+
+
 
   res3P <- metaScenario3(dat=dat, allSources=allSources, designObj=designObjP,
                          alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
@@ -73,6 +264,12 @@ designObjP <- designSaviT(alpha=alpha, power=power,
                           betaFutility=betaFutility,
                           varEqual=varEqual, testType="twoSample",
                           alternative=alternative)
+
+
+res1 <- metaScenario1(dat=dat, allSources=allSources, designObj=designObjP,
+                      nuMin=3, alphaMeta=alphaMeta,
+                      betaFutilityMeta=betaFutilityMeta,
+                      nSim=1e3)
 
 res3P <- metaScenario3(dat=dat, allSources=allSources, designObj=designObjP,
                        alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
