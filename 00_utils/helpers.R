@@ -231,6 +231,18 @@ scenario1TTestHelp <- function(someDat, designObj, factorLevels=NULL,
 
     y <- y[!is.na(y)]
     n2 <- length(y)
+  } else if (is.null(factorLevels)) {
+    x <- someDat[["outcome"]]
+
+    if (is.null(x))
+      stop("No 'outcome' column in the data set.")
+
+    # Remove non-available entries
+    x <- x[!is.na(x)]
+    n1 <- length(x)
+
+    y <- NULL
+    n2 <- 0
   }
 
   alternativeOld <- switch(designObj[["alternative"]],
@@ -367,7 +379,7 @@ scenario2T <- function(dat, allSources, designObj, alpha=0.05,
     nParticipants <- n1+n2
 
     for (k in 1:nSim) {
-      tempRes <- twoSampleTTestRandomOrder(
+      tempRes <- tTestRandomOrder(
         "x"=x, "y"=y, "n1"=n1, "n2"=n2,
         "designObj"=designObj, "nuMin"=nuMin,
         "wantCi"=wantCi, "nMax"=nMax, "nSim"=nSim,
@@ -459,8 +471,14 @@ scenario2TTestHelp <- function(
   eValues <- eValuesFut <- numeric(nSim)
 
   ## Data ---
-  x <- someDat[which(someDat$factor==factorLevels[1]), ]$variable
-  y <- someDat[which(someDat$factor==factorLevels[2]), ]$variable
+  if (designObj[["testType"]]=="twoSample") {
+    x <- someDat[which(someDat$factor==factorLevels[1]), ]$variable
+    y <- someDat[which(someDat$factor==factorLevels[2]), ]$variable
+  } else if (designObj[["testType"]]=="oneSample") {
+    x <- someDat[["outcome"]]
+    y <- NULL
+  }
+
 
   # Remove non-available entries
   x <- x[!is.na(x)]
@@ -474,10 +492,12 @@ scenario2TTestHelp <- function(
     n2 <- min(n2, designObj$nPlan[2])
   }
 
+  if (is.na(n2)) n2 <- 0
+
   nParticipants <- n1+n2
 
   for (k in 1:nSim) {
-    tempRes <- twoSampleTTestRandomOrder(
+    tempRes <- tTestRandomOrder(
       "x"=x, "y"=y, "n1"=n1, "n2"=n2,
       "designObj"=designObj, "nuMin"=nuMin,
       "wantCi"=wantCi, "seed"=seed
@@ -495,7 +515,7 @@ scenario2TTestHelp <- function(
   return(res)
 }
 
-twoSampleTTestRandomOrder <- function(
+tTestRandomOrder <- function(
     x, y, n1, n2, designObj,
     nuMin=3, wantCi=FALSE, nMax=NULL,
     seed=NULL, ...) {
@@ -529,9 +549,17 @@ twoSampleTTestRandomOrder <- function(
       yRun <- c(yRun, totalVar[partId])
     }
 
-    someCheck <- checkXY(xRun, yRun)
+    if (designObj[["testType"]]=="twoSample"){
+      someCheck <- checkXY(xRun, yRun)
+    } else {
+      someCheck <- if (length(xRun) > 1) TRUE else FALSE
+    }
 
     if (someCheck) {
+
+      if (designObj[["testType"]]=="oneSample")
+        yRun <- NULL
+
       tempRes <- saviTTest(
         "x"=xRun, "y"=yRun, "designObj"=designObj,
         "sequential"=FALSE, "nuMin"=nuMin, "wantCi"=wantCi)
@@ -551,7 +579,7 @@ twoSampleTTestRandomOrder <- function(
 scenario3T <- function(dat, allSources, designObj, alphaMeta=0.05,
                        betaFutilityMeta=alphaMeta, nuMin=3, nSim=1e3L,
                        nMax=NULL, seed=NULL, wantCi=FALSE,
-                       nPlanLimit=FALSE) {
+                       nPlanLimit=TRUE) {
   nTotal <- length(unique(dat$uID))
   nSources <- length(allSources)
 
@@ -601,7 +629,11 @@ computeScenario3TOneSim <- function(
 
   nSources <- length(allSources)
 
-  factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
+  if (!is.null(dat$factor)) {
+    factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
+  } else {
+    factorLevels <- NULL
+  }
 
   sourceDataTracker <- vector(mode="list", length=nSources)
   names(sourceDataTracker) <- allSources
@@ -643,7 +675,13 @@ computeScenario3TOneSim <- function(
 
     # Skip if sample size limit is reached within trial
     #
-    if (nPlanLimit && length(x) >= designObj$nPlan[1] && length(y) >= designObj$nPlan[2])
+    if (designObj[["testType"]]=="twoSample" &&
+        nPlanLimit && length(x) >= designObj$nPlan[1] &&
+        length(y) >= designObj$nPlan[2])
+      next()
+
+    if (designObj[["testType"]]=="oneSample" &&
+        nPlanLimit && length(x) >= designObj$nPlan[1])
       next()
 
     # Skip if already stopped within trial
@@ -651,14 +689,23 @@ computeScenario3TOneSim <- function(
     if (stopDecision[[someSource]]!=0)
       next()
 
-
-    if (someRow$factor==factorLevels[1]) {
-      sourceDataTracker[[someSource]]$x <- x <- c(x, someRow$variable)
-    } else if (someRow$factor==factorLevels[2]) {
-      sourceDataTracker[[someSource]]$y <- y <- c(y, someRow$variable)
+    if (designObj[["testType"]]=="twoSample") {
+      if (someRow$factor==factorLevels[1]) {
+        sourceDataTracker[[someSource]]$x <- x <- c(x, someRow$variable)
+      } else if (someRow$factor==factorLevels[2]) {
+        sourceDataTracker[[someSource]]$y <- y <- c(y, someRow$variable)
+      }
+    } else if (designObj[["testType"]]=="oneSample") {
+      sourceDataTracker[[someSource]]$x <- x <- c(x, someRow$outcome)
     }
 
-    someCheck <- checkXY(x, y)
+    # TODO(Alexander): Hier tTestRandom....
+
+    if (designObj[["testType"]]=="twoSample") {
+      someCheck <- checkXY(x, y)
+    } else {
+      someCheck <- if (length(x) > 1) TRUE else FALSE
+    }
 
     if (someCheck) {
       logEValueOld <- logETracker[[someSource]]
