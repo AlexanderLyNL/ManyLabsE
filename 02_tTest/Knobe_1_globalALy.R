@@ -107,7 +107,7 @@ ML2.var[[g]] <- varfun.Knobe.1(ML2.sr[[g]])
 stat.params <<- ML2.in$stat.params
 stat.params$var.equal <- FALSE
 
-freqRes <- t.test(variable ~ factor, data = ML2.var[[g]]$cleanDataFilter, var.equal = stat.params$var.equal)
+freqRes <- t.test(variable ~ factor, data = dat, var.equal = stat.params$var.equal)
 
 dat <- ML2.var[[g]]$cleanDataFilter
 

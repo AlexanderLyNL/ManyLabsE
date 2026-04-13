@@ -15,28 +15,29 @@ OSFdata.root <- file.path(project.root, "OSFdata")
 source(file.path(project.root, "00_utils", "WYQ_manylabRs_SOURCE.R"))
 source(file.path(project.root, "00_utils", "helpers.R"))
 
-debugonce(saviTTest)
+# debugonce(saviTTest)
 
-bep1$designObjList$knobe$bootObjN1Plan$data
+# bep1$designObjList$knobe$bootObjN1Plan$data
 
-bep1 <- manyLabsMetaScenarios1(1, nSim=1e3L)
-bep2 <- manyLabsMetaScenarios1(2,
+
+bep1 <- manyLabsMetaScenarios(1, nSim=1e3L)
+bep2 <- manyLabsMetaScenarios(2,
                                designObjList=bep1$designObjList,
                                nSim=1e3L)
 
-bep3 <- manyLabsMetaScenarios1(3,
-                               designObjList=bep1$designObjList,
-                               nSim=1e3L)
+bep3 <- manyLabsMetaScenarios(3,
+                              designObjList=bep1$designObjList,
+                              nSim=1e3L)
 
 bep1$resultTable
 bep2$resultTable
 bep3$resultTable
-
+debugonce(manyLabsMetaScenarios1)
 
 manyLabsMetaScenarios1 <- function(
     metaScenario=1, deltaMinFactor=0.7,
     alternative="greater", nSim=100,
-    alpha=0.05, betaFutility=alpha,
+    alpha=0.05, power=0.8, betaFutility=alpha,
     alphaMeta=alpha^4, betaFutilityMeta=alphaMeta,
     wantCi=FALSE, seed=1234, nuMin=3,
     designObjList=NULL, ...)  {

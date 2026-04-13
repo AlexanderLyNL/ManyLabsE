@@ -149,6 +149,64 @@ checkXY <- function(x, y, nMin=1) {
 }
 
 # T-test ----
+computeEValuesT <- function(x, y, designObj, nuMin=3, h0=0) {
+  res <- list(eValue=NULL, eValueFut=NULL, n1=NULL, n2=NULL)
+
+  sumStats <- computeZTSumStats(
+    "x"=x, "y"=y, "sequential"=FALSE,
+    "varEqual"=designObj[["varEqual"]], "paired"=FALSE,
+    "testType"=designObj[["testType"]])
+
+  list2env(sumStats, envir=environment())
+
+  if (nu <= nuMin || is.na(sdObs)) {
+    tStat <- 0
+  } else {
+    tStat <- try(sqrt(nEff)*(meanObs - h0)/sdObs)
+  }
+
+  if (is.na(tStat) && sdObs==0 && meanObs-h0==0)
+    tStat <- 0
+
+  if (is.na(tStat))
+    stop("Data error: Could not compute the t-statistic")
+
+  names(tStat) <- "t"
+
+  ### Compute: eValue ----
+  #
+  testResult <- suppressWarnings(
+    saviTTestStatNEffNu("t"=tStat, "nEff"=nEff, "nu"=nu,
+                        "parameter"=designObj[["parameter"]],
+                        "alternative"=designObj[["alternative"]],
+                        "paired"=FALSE,
+                        "tDensity"=FALSE,
+                        "nuMin"=nuMin, "eType"=designObj[["eType"]])
+  )
+
+
+
+  res[["eValue"]] <- unname(testResult[["eValue"]])
+
+
+  if (designObj[["futility"]]) {
+    testResultFut <- suppressWarnings(
+      saviFutilityTStatNEffNu("t"=tStat, "nEff"=nEff, "nu"=nu,
+                              "parameter"=designObj[["futilityResult"]][["parameter"]],
+                              "alternative"=designObj[["alternative"]], "paired"=FALSE,
+                              "nuMin"=nuMin)
+    )
+  }
+
+  res[["eValueFut"]] <- unname(testResultFut[["eValue"]])
+
+  res[["n1"]] <- sumStats[["n1"]]
+
+  res[["n2"]] <- if (is.null(n2)) 0 else sumStats[["n2"]]
+
+  return(res)
+}
+
 scenario1T <- function(dat, allSources, designObj,
                        nuMin=3, wantCi=FALSE,
                        alphaMeta=0.05, betaFutilityMeta=alphaMeta,
@@ -256,14 +314,15 @@ scenario1TTestHelp <- function(someDat, designObj, factorLevels=NULL,
 
   res[["pValue"]] <- tempResult[["p.value"]]
 
-  tempRes <- saviTTest("x"=x, "y"=y, "designObj"=designObj,
-                       "sequential"=FALSE, "wantCi"=wantCi,
-                       "nuMin"=nuMin)
+  tempRes <- computeEValuesT(
+    "x"=x, "y"=y, "designObj"=designObj,
+    "nuMin"=nuMin)
+
   res[["eValue"]] <- tempRes[["eValue"]]
   res[["eValueFut"]] <- tempRes[["eValueFut"]]
 
-  res[["n1"]] <- n1
-  res[["n2"]] <- n2
+  res[["n1"]] <- tempRes[["n1"]]
+  res[["n2"]] <- tempRes[["n2"]]
 
   return(res)
 }
@@ -560,12 +619,12 @@ tTestRandomOrder <- function(
       if (designObj[["testType"]]=="oneSample")
         yRun <- NULL
 
-      tempRes <- saviTTest(
-        "x"=xRun, "y"=yRun, "designObj"=designObj,
-        "sequential"=FALSE, "nuMin"=nuMin, "wantCi"=wantCi)
+      tempRes <- computeEValuesT(
+        "x"=xRun, "y"=yRun,
+        "designObj"=designObj, "nuMin"=nuMin)
 
-      eNow <- tempRes$eValue
-      eFutNow <- tempRes$eValueFut
+      eNow <- tempRes[["eValue"]]
+      eFutNow <- tempRes[["eValueFut"]]
 
       if (eNow >= 1/alpha || eFutNow <= betaFutility ||
           j==nMax) {
@@ -649,10 +708,10 @@ computeScenario3TOneSim <- function(
   names(logETracker) <- allSources
   logEFutTracker <- logETracker
 
-  nTotal <- length(dat$uID)
+  nTotal <- length(dat[["uID"]])
 
   # set.seed(seed)
-  someOrder <- sample(unique(dat$uID), nTotal)
+  someOrder <- sample(unique(dat[["uID"]]), nTotal)
 
   # meta eValues are all 1 at the start
   #
@@ -711,8 +770,12 @@ computeScenario3TOneSim <- function(
       logEValueOld <- logETracker[[someSource]]
       logEValueFutOld <- logEFutTracker[[someSource]]
 
-      tempRes <- saviTTest("x"=x, "y"=y, "designObj"=designObj,
-                           "sequential"=FALSE, "wantCi"=wantCi)
+      tempRes <- computeEValuesT(
+        "x"=x, "y"=y,
+        "designObj"=designObj, "nuMin"=nuMin)
+
+      # tempRes <- saviTTest("x"=x, "y"=y, "designObj"=designObj,
+      #                      "sequential"=FALSE, "wantCi"=wantCi)
 
       logEValueNow <- logETracker[[someSource]] <-
         log(tempRes$eValue)
@@ -2089,4 +2152,155 @@ perturbX <- function(x, sd=0.1) {
   x <- x + rnorm(length(x), sd=sd)
 
   return(x)
+}
+
+
+manyLabsMetaScenarios <- function(
+    metaScenario=1, deltaMinFactor=0.7,
+    alternative="greater", nSim=100,
+    alpha=0.05, power=0.8, betaFutility=alpha,
+    alphaMeta=alpha^4, betaFutilityMeta=alphaMeta,
+    wantCi=FALSE, seed=1234, nuMin=3,
+    designObjList=NULL, ...)  {
+
+  studyNames <- c("knobe", "ross1", "gray", "ross2",
+                  "norenzayan", "hsee", "huang", "kay",
+                  "risen", "bauer", "critcher", "giessner",
+                  "gati", "zhong", "alter",
+                  "zaval", "anderson")
+
+  deltaMinList <- list("knobe"=1.45, "ross1"=0.99, "gray"=0.8,
+                       "ross2"=0.8, "norenzayan"=0.35, "hsee"=0.69,
+                       "huang"=0.68, "kay"=0.49, "risen"=0.39,
+                       "bauer"=0.87, "critcher"=0.3, "giessner"=0.48,
+                       "gati"=0.48, "zhong"=1.02, "alter"=0.63, "zaval"=0.31,
+                       "anderson"=0.57)
+
+  nStudies <- length(studyNames)
+
+  individualResultList <- vector(mode="list", nStudies)
+  names(individualResultList) <- studyNames
+
+  if (is.null(designObjList))
+    designObjList <- individualResultList
+
+  if (metaScenario==1) {
+    nCol <- 7
+  } else if (metaScenario==2) {
+    nCol <- 7
+  } else if (metaScenario==3) {
+    nCol <- 5
+  }
+
+  resultTable <- matrix(nrow=length(studyNames), ncol=nCol)
+
+  for (i in seq_along(studyNames)) {
+    studyNeem <- studyNames[i]
+
+    testType <- if (studyNeem=="gati") "oneSample" else "twoSample"
+
+    ### Data -------
+    # TODO(Alexander): ------
+    #     Add the data to the data folder of the package
+    #
+    load(paste0(myWd, studyNeem, ".RData"))
+
+    dat <- checkUniqueIds(dat)
+
+    if (studyNeem!="gati") {
+      tempRes <- removeOneConditionSources(dat)
+    } else {
+      tempRes <- list(allSources=unique(dat[["source"]]))
+    }
+
+
+    allSources <- tempRes$allSources
+    sampleSize <- tempRes$sampleSize
+
+    dat <- dat[dat$source %in% allSources, ]
+
+    ### Study param setting ----
+    varEqual <- stat.params$var.equal
+
+    deltaMin <- deltaMinList[[studyNeem]]
+    deltaMin <- deltaMin*deltaMinFactor
+
+    ### designObj ------
+    designObj <- designObjList[[studyNeem]]
+
+    if (is.null(designObj)) {
+      designObj <- designSaviT(
+        alpha=alpha, power=power,
+        deltaMin=deltaMin, futility=TRUE,
+        betaFutility=betaFutility,
+        varEqual=varEqual, testType=testType,
+        alternative=alternative, seed=seed)
+
+      designObjList[[studyNeem]] <- designObj
+    }
+
+    ### analysis ------
+    #
+    if (metaScenario==1) {
+      res <- metaScenario1(
+        dat=dat, allSources=allSources,
+        designObj=designObj, seed=seed,
+        nuMin=nuMin, alphaMeta=alphaMeta,
+        betaFutilityMeta=betaFutilityMeta, nSim=nSim)
+
+      resultTable[i, 1] <- mean(res[["logMetaE"]])
+      resultTable[i, 2] <- mean(res[["logMetaEFut"]])
+      resultTable[i, 3] <- mean(res[["eValues"]] >= 1/alpha)*100
+      resultTable[i, 4] <- mean(res[["eValuesFut"]] <= betaFutility)*100
+      resultTable[i, 5] <- mean(res[["totalStoppingTimes"]])
+
+      resultTable[i, 7] <- dim(dat)[1]
+      resultTable[i, 6] <- (1-resultTable[i, 5]/resultTable[i, 7])*100
+
+    } else if (metaScenario==2) {
+      res <- metaScenario2(
+        dat=dat, allSources=allSources,
+        designObj=designObj, seed=seed,
+        nuMin=nuMin, nSim=nSim)
+
+      resultTable[i, 1] <- mean(res[["logMetaE"]])
+      resultTable[i, 2] <- mean(res[["logMetaEFut"]])
+      resultTable[i, 3] <- mean(res[["alternativeProportion"]])*100
+      resultTable[i, 4] <- mean(res[["futilityProportion"]])*100
+      resultTable[i, 5] <- mean(res[["totalStoppingTimes"]])
+
+      resultTable[i, 7] <- dim(dat)[1]
+      resultTable[i, 6] <- (1-resultTable[i, 5]/resultTable[i, 7])*100
+    } else if (metaScenario==3) {
+      res <- metaScenario3(
+        dat=dat, allSources=allSources,
+        designObj=designObj, alphaMeta=alphaMeta,
+        betaFutilityMeta=betaFutilityMeta, nuMin=nuMin,
+        nSim=nSim, seed=seed)
+
+      resultTable[i, 1] <- mean(res[["logMetaE"]])
+      resultTable[i, 2] <- mean(res[["logMetaEFut"]])
+      resultTable[i, 3] <- mean(res[["totalStoppingTimes"]])
+      resultTable[i, 5] <- dim(dat)[1]
+      resultTable[i, 4] <- (1-resultTable[i, 3]/resultTable[i, 5])*100
+    } else {
+      stop("Only metaScenario %in% c(1, 2, 3) available")
+    }
+
+    individualResultList[[studyNeem]] <- res
+  }
+
+  resultTable <- as.data.frame(resultTable)
+  rownames(resultTable) <- studyNames
+
+  if (metaScenario %in% 1:2) {
+    colnames(resultTable) <- c("logMetaE", "logMetaEFut", "Reject H0", "Reject H1", "nStop", "Savings %", "nTotal")
+  } else if (metaScenario==3) {
+    colnames(resultTable) <- c("logMetaE", "logMetaEFut", "nStop", "Savings %", "nTotal")
+  }
+
+  res <- list(resultTable=resultTable, designObjList=designObjList, individualResultList=individualResultList)
+
+  class(res) <- "saviManyLabs2"
+  return(res)
 }
