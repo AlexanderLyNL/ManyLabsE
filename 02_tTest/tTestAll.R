@@ -965,7 +965,7 @@ sampleSize <- tempRes$sampleSize
 
 
 varEqual <- stat.params$var.equal
-varEqual <- FALSE
+# varEqual <- FALSE
 deltaMin <- 1.02
 
 ## Plus -------
@@ -978,6 +978,20 @@ designObjP <- designSaviT(alpha=alpha, power=power,
                           betaFutility=betaFutility,
                           varEqual=varEqual, testType="twoSample",
                           alternative="greater")
+designObjP <- bep1$designObjList[["zhong"]]
+
+kaas1 <- metaScenario1(dat, allSources, designObjP)
+
+subDat <- dat[dat$source=="moralsense", ]
+
+mep <- saviTTest(variable~factor, data=subDat, designObj=designObjP)
+
+x <- subDat$variable[subDat$factor=="Ethical"]
+y <- subDat$variable[subDat$factor=="Unethical"]
+
+debugonce(saviTTest)
+mep <- saviTTest(x=x, y=y, designObj=designObjP)
+mep$eValueFut
 
 res3P <- metaScenario3(dat=dat, allSources=allSources, designObj=designObjP,
                        alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,

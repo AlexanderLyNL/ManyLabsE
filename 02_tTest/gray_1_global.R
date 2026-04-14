@@ -435,6 +435,7 @@ deltaMin <- 0.8
 varEqual <- stat.params$var.equal
 alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
 wantCi <- FALSE
+power <- 0.8
 
 set.seed(1234)
 designObj <- designSaviT(alpha=alpha, power=power,
@@ -442,6 +443,9 @@ designObj <- designSaviT(alpha=alpha, power=power,
                          betaFutility=betaFutility,
                          varEqual=varEqual, testType="twoSample",
                          alternative=alternative)
+
+alphaMeta <- alpha^4
+betaFutilityMeta <- alphaMeta
 
 # Scenario 1 ----
 res1 <- metaScenario1(dat=dat, allSources=allSources, designObj=designObj,
