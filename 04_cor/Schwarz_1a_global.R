@@ -234,7 +234,7 @@ sd(res1$totalStoppingTimes)
 
 # Scenario 2-----
 res2 <- metaScenario2(dat=dat, allSources=allSources,
-                      designObj=designObj, seed=1, nSim=1e3L,
+                      designObj=designObj, seed=1, nSim=5,
                       nEffMin=2)
 
 sum(is.infinite(res2$eValues))
@@ -266,7 +266,7 @@ sd(res2$totalStoppingTimes)
 #Scenario 3 ------
 res3 <- metaScenario3(dat=dat, allSources=allSources, designObj=designObj,
                       alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
-                      nEffMin=2, nuMin=nuMin, nSim=1e3L, wantCi=wantCi, seed=1)
+                      nEffMin=2, nuMin=nuMin, nSim=5, wantCi=wantCi, seed=1)
 
 mean(res3$logMetaE >= log(1/alphaMeta))
 sd(res3$logMetaE >= log(1/alphaMeta))

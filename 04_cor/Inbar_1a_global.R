@@ -158,13 +158,13 @@ freqTest$value$conf.int
 
 diff(-atanh(freqTest$value$estimate))
 
-saviZTestStat(z=sqrt(studySummary$n[1]*studySummary$n[2]/sum(studySummary$n))*diff(-atanh(freqTest$value$estimate)),
-              n1=studySummary$n[1], n2=studySummary$n[2],
-              parameter=designObj$parameter)
-
-saviFutilityZStat(z=sqrt(studySummary$n[1]*studySummary$n[2]/sum(studySummary$n))*diff(-atanh(freqTest$value$estimate)),
-                  n1=studySummary$n[1], n2=studySummary$n[2],
-                  parameter=designObj$parameter)
+# saviZTestStat(z=sqrt(studySummary$n[1]*studySummary$n[2]/sum(studySummary$n))*diff(-atanh(freqTest$value$estimate)),
+#               n1=studySummary$n[1], n2=studySummary$n[2],
+#               parameter=designObj$parameter)
+#
+# saviFutilityZStat(z=sqrt(studySummary$n[1]*studySummary$n[2]/sum(studySummary$n))*diff(-atanh(freqTest$value$estimate)),
+#                   n1=studySummary$n[1], n2=studySummary$n[2],
+#                   parameter=designObj$parameter)
 
 
 
@@ -233,7 +233,7 @@ sd(res1$totalStoppingTimes)
 
 # Scenario 2-----
 res2 <- metaScenario2(dat=dat, allSources=allSources,
-                      designObj=designObj, seed=1, nSim=1e3L,
+                      designObj=designObj, seed=1, nSim=5,
                       nEffMin=2)
 
 sum(is.infinite(res2$eValues))

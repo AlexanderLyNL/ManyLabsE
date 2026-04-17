@@ -120,7 +120,7 @@ removeOneConditionSources <- function(dat) {
 }
 
 
-checkXY <- function(x, y, nMin=1) {
+checkTwoSample <- function(x, y, nMin=1) {
   x <- x[!is.na(x)]
   y <- y[!is.na(y)]
 
@@ -143,6 +143,24 @@ checkXY <- function(x, y, nMin=1) {
     return(FALSE)
 
   if (is.na(y))
+    return(FALSE)
+
+  return(TRUE)
+}
+
+checkOneSample <- function(x, nMin=1) {
+  x <- x[!is.na(x)]
+
+  if (length(x) >= nMin)
+    return(TRUE)
+
+  if (is.null(x))
+    return(FALSE)
+
+  if (length(x) < nMin)
+    return(FALSE)
+
+  if (is.na(x))
     return(FALSE)
 
   return(TRUE)
@@ -279,7 +297,7 @@ scenario1TTestHelp <- function(someDat, designObj, factorLevels=NULL,
   res <- list(eValue=NULL, eValueFut=NULL, n1=NULL, n2=NULL, pValue=NULL)
 
   ## Data ---
-  if (!is.null(factorLevels)) {
+  if (designObj[["testType"]]=="twoSample") {
     x <- someDat[which(someDat$factor==factorLevels[1]), ]$variable
     y <- someDat[which(someDat$factor==factorLevels[2]), ]$variable
 
@@ -289,7 +307,7 @@ scenario1TTestHelp <- function(someDat, designObj, factorLevels=NULL,
 
     y <- y[!is.na(y)]
     n2 <- length(y)
-  } else if (is.null(factorLevels)) {
+  } else if (designObj[["testType"]]=="oneSample") {
     x <- someDat[["outcome"]]
 
     if (is.null(x))
@@ -431,8 +449,8 @@ scenario2T <- function(dat, allSources, designObj, alpha=0.05,
     n2 <- length(y)
 
     if (!is.null(designObj$nPlan)) {
-      n1 <- min(n1, designObj$nPlan[1])
-      n2 <- min(n2, designObj$nPlan[2])
+      n1 <- min(n1, designObj[["nPlan"]][1])
+      n2 <- min(n2, designObj[["nPlan"]][2], na.rm=TRUE)
     }
 
     nParticipants <- n1+n2
@@ -478,14 +496,18 @@ metaScenario2 <- function(dat, allSources, designObj, alphaMeta=0.05,
 
   factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
 
+  seedNext <- NULL
+
   for (i in 1:length(allSources)) {
-    someDat <- dat[dat$source==allSources[i], ]
+    someDat <- dat[dat[["source"]]==allSources[i], ]
+
+    if (!is.null(seed)) seedNext <- seed+i
 
     if (designObj[["testName"]]=="T-Test") {
       tempRes <- scenario2TTestHelp(
         "someDat"=someDat, "designObj"=designObj,
         "factorLevels"=factorLevels, "wantCi"=wantCi,
-        "nuMin"=nuMin, "nSim"=nSim, "seed"=seed)
+        "nuMin"=nuMin, "nSim"=nSim, "seed"=seedNext)
     } else if (designObj[["testName"]]=="Z-Test") {
       stop("Z-test not yet done")
     } else if (designObj[["testName"]]=="2x2") {
@@ -494,7 +516,7 @@ metaScenario2 <- function(dat, allSources, designObj, alphaMeta=0.05,
       tempRes <- scenario2CorHelp(
         "someDat"=someDat, "designObj"=designObj,
         "factorLevels"=factorLevels, "nSim"=nSim,
-        "nEffMin"=nEffMin)
+        "nEffMin"=nEffMin, "seed"=seedNext)
     }
 
     nSamples[, i] <- tempRes[["nSamples"]]
@@ -547,19 +569,21 @@ scenario2TTestHelp <- function(
   n2 <- length(y)
 
   if (!is.null(designObj$nPlan)) {
-    n1 <- min(n1, designObj$nPlan[1])
-    n2 <- min(n2, designObj$nPlan[2])
+    n1 <- min(n1, designObj[["nPlan"]][1])
+    n2 <- min(n2, designObj[["nPlan"]][2], na.rm=TRUE)
   }
-
-  if (is.na(n2)) n2 <- 0
 
   nParticipants <- n1+n2
 
+  seedNext <- NULL
+
   for (k in 1:nSim) {
+    if (!is.null(seed)) seedNext <- seed + k
+
     tempRes <- tTestRandomOrder(
       "x"=x, "y"=y, "n1"=n1, "n2"=n2,
       "designObj"=designObj, "nuMin"=nuMin,
-      "wantCi"=wantCi, "seed"=seed
+      "wantCi"=wantCi, "seed"=seedNext
     )
 
     nSamples[k] <- tempRes[["nSamples"]]
@@ -609,7 +633,7 @@ tTestRandomOrder <- function(
     }
 
     if (designObj[["testType"]]=="twoSample"){
-      someCheck <- checkXY(xRun, yRun)
+      someCheck <- checkTwoSample(xRun, yRun)
     } else {
       someCheck <- if (length(xRun) > 1) TRUE else FALSE
     }
@@ -688,9 +712,9 @@ computeScenario3TOneSim <- function(
 
   nSources <- length(allSources)
 
-  if (!is.null(dat$factor)) {
-    factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
-  } else {
+  if (designObj[["testType"]]=="twoSample") {
+    factorLevels <- if (is.ordered(dat[["factor"]])) levels(dat[["factor"]]) else unique(dat[["factor"]])
+  } else if (designObj[["testType"]]=="oneSample") {
     factorLevels <- NULL
   }
 
@@ -761,7 +785,7 @@ computeScenario3TOneSim <- function(
     # TODO(Alexander): Hier tTestRandom....
 
     if (designObj[["testType"]]=="twoSample") {
-      someCheck <- checkXY(x, y)
+      someCheck <- checkTwoSample(x, y)
     } else {
       someCheck <- if (length(x) > 1) TRUE else FALSE
     }
@@ -813,7 +837,7 @@ metaScenario3 <- function(dat, allSources, designObj, alphaMeta=0.05,
                           nMax=NULL, seed=NULL, wantCi=FALSE,
                           nPlanLimit=FALSE, nEffMin=2) {
 
-  nTotal <- length(unique(dat$uID))
+  nTotal <- length(unique(dat[["uID"]]))
   nSources <- length(allSources)
 
   logMetaE <- logMetaEFut <- numeric(nSim)
@@ -824,13 +848,16 @@ metaScenario3 <- function(dat, allSources, designObj, alphaMeta=0.05,
   nSamples <- nStopDecision <- matrix(nrow=nSim, ncol=nSources)
   logEValues <- logEValuesFut <- matrix(nrow=nSim, ncol=nSources)
 
-  # set.seed(seed)
+  seedNext <- NULL
   for (i in 1:nSim) {
+
+    if (!is.null(seed)) seedNext <- seed+i
+
     if (designObj[["testName"]]=="T-Test") {
       tempRes <- computeScenario3TOneSim(
         dat=dat, allSources=allSources, designObj=designObj,
         alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
-        nuMin=nuMin, nSim=nSim,
+        nuMin=nuMin, nSim=nSim, seed=seedNext,
         wantCi=wantCi, nPlanLimit=nPlanLimit)
     } else if (designObj[["testName"]]=="Z-Test") {
       stop("Z-test not yet done")
@@ -842,7 +869,7 @@ metaScenario3 <- function(dat, allSources, designObj, alphaMeta=0.05,
         alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
         nuMin=nuMin, nSim=nSim,
         wantCi=wantCi, nPlanLimit=nPlanLimit, nEffMin=nEffMin,
-        seed=seed+i)
+        seed=seedNext)
     }
 
     logMetaE[i] <- tempRes[["logMetaE"]]
@@ -1384,7 +1411,7 @@ computeScenario3ZbinomOneSim <- function(
     #  sourceDataTracker[[someSource]]$y <- y <- c(y, someRow$variable)
     #}
 
-    #someCheck <- checkXY(x, y)
+    #someCheck <- checkTwoSample(x, y)
     xRun <- sourceDataTracker[[someSource]]
     xRun_df <- as.data.frame(xRun)
     count <- as.integer(xRun_df$variable1==2)
@@ -1470,8 +1497,8 @@ scenario1ZCorr <- function(dat, allSources, designObj,
 
   for (i in 1:length(allSources)) {
     someDat <- dat[dat$source==allSources[i], ]
-    someN <- length(someDat$uID)
-    nVec[i] <- someN
+    someN <- length(someDat$uID)-3
+    nVec[i] <- someN-3
     someR  <- cor(someDat$variable1, someDat$variable2)
     someZ  <- atanh(someR)/sqrt(1/(length(someDat$uID)-3))
     pValues[i] <- 1-pnorm(abs(someZ))
@@ -1652,147 +1679,33 @@ scenario3ZCorr <- function(dat, allSources, designObj, alpha=0.05,
   return(res)
 }
 
-computeScenario3ZCorrOneSim <- function(
-    dat, allSources, designObj, alpha=0.05,
-    betaFutility=alpha, nuMin=3, nSim=1e3L,
-    seed=NULL, wantCi=FALSE,
-    nPlanLimit=TRUE) {
-
-  nSources <- length(allSources)
-
-  #factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
-
-  sourceDataTracker <- vector(mode="list", length=nSources)
-  names(sourceDataTracker) <- allSources
-  cols <- colnames(dat)
-  for (neem in allSources)
-    sourceDataTracker[[neem]] <- setNames(vector("list", length(cols)), cols)
-
-  nSamples <- integer(length=nSources)
-  names(nSamples) <- allSources
-  stopDecision <- nSamples
-
-  logETracker <- numeric(length=nSources)
-  names(logETracker) <- allSources
-  logEFutTracker <- logETracker
-
-  nTotal <- length(dat$uID)
-
-  someOrder <- sample(unique(dat$uID), nTotal)
-
-  # meta eValues are all 1 at the start
-  #
-  logMetaENow <- logMetaEFutNow <- 0
-
-  for (j in seq_along(someOrder)) {
-    someId <- someOrder[j]
-
-    someRow <- dat[which(dat$uID==someId), ]
-    someSource <- someRow$source
-
-    nSamples[[someSource]] <- nSamples[[someSource]] + 1
-
-    sourceDataTemp <- sourceDataTracker[[someSource]]
-
-    # Retrieve old values from state
-    #
-    oldData <- sourceDataTemp
-
-    # Skip if sample size limit is reached within trial
-    #
-    if (nPlanLimit && length(sourceDataTemp$uID) >= designObj$nPlan)
-      next()
-
-    # Skip if already stopped within trial
-    #
-    if (stopDecision[[someSource]]!=0)
-      next()
-    someRowList <- as.list(someRow[1, ])
-    sourceDataTracker[[someSource]] <- Map(
-      c,
-      sourceDataTracker[[someSource]],
-      someRowList
-    )
-    #if (someRow$factor==factorLevels[1]) {
-    #  sourceDataTracker[[someSource]]$x <- x <- c(x, someRow$variable)
-    #} else if (someRow$factor==factorLevels[2]) {
-    #  sourceDataTracker[[someSource]]$y <- y <- c(y, someRow$variable)
-    #}
-
-    #someCheck <- checkXY(x, y)
-    xRun <- sourceDataTracker[[someSource]]
-    xRun_df <- as.data.frame(xRun)
-
-    sd1 <- sqrt(var(xRun_df$variable1))
-    sd2 <- sqrt(var(xRun_df$variable2))
-    someN <- nrow(xRun_df)
-
-
-    if (someN > 3 && sd1 > 0 && sd2 > 0){
-      logEValueOld <- logETracker[[someSource]]
-      logEValueFutOld <- logEFutTracker[[someSource]]
-
-      someR  <- cor(xRun$variable1, xRun$variable2)
-      someZ  <- atanh(someR)/sqrt(1/(someN-3))
-
-      tempRes <- saviZTestStat(
-        z=someZ, n1=someN,
-        parameter=designObj$parameter,
-        eType=designObj$eType, sigma=designObj$sigma)
-
-      eNow <- tempRes$eValue
-
-      tempRes <- saviFutilityZStat(
-        z=someZ, n1=someN,
-        parameter=designObj$futilityResult$parameter,
-        sigma=designObj$sigma)
-
-      eFutNow <- tempRes$eValue
-
-
-      logEValueNow <- logETracker[[someSource]] <-
-        log(eNow)
-      logEValueFutNow <- logEFutTracker[[someSource]] <-
-        log(eFutNow)
-
-      if (logEValueNow >= log(1/alpha))
-        stopDecision[[someSource]] <- 1
-
-      if (logEValueFutNow <= log(betaFutility))
-        stopDecision[[someSource]] <- -1
-
-      logMetaEAdd <- logEValueNow - logEValueOld
-      logMetaEFutAdd <- logEValueFutNow - logEValueFutOld
-
-      logMetaENow <- logMetaENow+logMetaEAdd
-      logMetaEFutNow <- logMetaEFutNow+logMetaEFutAdd
-
-      if (logMetaENow >= log(1/alpha) || logMetaEFutNow <= log(betaFutility)) {
-        break
-      }
-    }
-  }
-
-  res <- list(logMetaE=logMetaENow, logMetaEFut=logMetaEFutNow,
-              logEValuesFut=logEFutTracker,
-              logEValues=logETracker,
-              nSamples=nSamples,
-              stopDecision=stopDecision)
-  return(res)
-}
-
-# 2-Corrie Z --------
+# Cor-to-Z --------
 scenario1CorHelp <- function(someDat, designObj, factorLevels=NULL) {
 
   res <- list(eValue=NULL, eValueFut=NULL, n1=NULL, n2=NULL, pValue=NULL)
 
   ## Data ---
-  if (!is.null(factorLevels)) {
+  if (designObj[["testType"]]=="twoSample") {
     dat1 <- someDat[which(someDat$factor==factorLevels[1]), ]
     dat2 <- someDat[which(someDat$factor==factorLevels[2]), ]
 
     n1 <- dim(dat1)[1]-3
     n2 <- dim(dat2)[1]-3
+
+    nEff <- n1*n2/(n1+n2)
+
+    corrie1 <- cor(dat1[["variable1"]], dat1[["variable2"]])
+    corrie2 <- cor(dat2[["variable1"]], dat2[["variable2"]])
+
+    zScore <- sqrt(nEff)*(atanh(corrie1)- atanh(corrie2))
+  } else if (designObj[["testType"]]=="oneSample") {
+    n1 <- dim(someDat)[1]-3
+    n2 <- NULL
+
+    nEff <- n1
+
+    corrie <- cor(someDat[["variable1"]], someDat[["variable2"]])
+    zScore <- sqrt(nEff)*(atanh(corrie))
   }
 
   alternativeOld <- switch(designObj[["alternative"]],
@@ -1800,18 +1713,10 @@ scenario1CorHelp <- function(someDat, designObj, factorLevels=NULL) {
                            "greater"="greater",
                            "less"="less")
 
-  corrie1 <- cor(dat1[["variable1"]], dat1[["variable2"]])
-  corrie2 <- cor(dat2[["variable1"]], dat2[["variable2"]])
+  res[["pValue"]] <- 1-pnorm(abs(zScore))
 
-  #TODO(Alexander): Perhaps later
-
-  res[["pValue"]] <- NA
-
-  nEff <- n1*n2/(n1+n2)
-
-  zScore <- sqrt(nEff)*(atanh(corrie1)- atanh(corrie2))
-
-  tempRes <- saviZTestStat(z=zScore, n1=n1, n2=n2, parameter=designObj[["parameter"]],
+  tempRes <- saviZTestStat(z=zScore, n1=n1, n2=n2,
+                           parameter=designObj[["parameter"]],
                            eType=designObj[["eType"]], alternative=designObj[["alternative"]])
 
   res[["eValue"]] <- tempRes[["eValue"]]
@@ -1822,7 +1727,7 @@ scenario1CorHelp <- function(someDat, designObj, factorLevels=NULL) {
 
   res[["eValueFut"]] <- tempRes[["eValue"]]
   res[["n1"]] <- n1
-  res[["n2"]] <- n2
+  res[["n2"]] <- if (!is.null(n2)) n2 else 0
 
   return(res)
 }
@@ -1837,25 +1742,34 @@ scenario2CorHelp <- function(someDat, designObj, factorLevels,
   eValues <- eValuesFut <- numeric(nSim)
 
   ## Data ---
-  if (!is.null(factorLevels)) {
+  if (designObj[["testType"]]=="twoSample") {
     dat1 <- someDat[which(someDat$factor==factorLevels[1]), ]
     dat2 <- someDat[which(someDat$factor==factorLevels[2]), ]
 
     n1 <- dim(dat1)[1]
     n2 <- dim(dat2)[1]
+  } else if (designObj[["testType"]]=="oneSample") {
+    dat1 <- someDat
+    dat2 <- NULL
+
+    n1 <- dim(dat1)[1]
+    n2 <- 0
   }
 
-  if (!is.null(designObj$nPlan)) {
-    n1 <- min(n1, designObj$nPlan[1])
-    n2 <- min(n2, designObj$nPlan[2])
+  if (!is.null(designObj[["nPlan"]])) {
+    n1 <- min(n1, designObj[["nPlan"]][1])
+    n2 <- min(n2, designObj[["nPlan"]][2], na.rm=TRUE)
   }
 
   nParticipants <- n1+n2
 
-  for (k in 1:nSim) {
+  seedNext <- NULL
 
-    tempRes <- twoSampleCorTestRandomOrder(dat1, dat2, n1, n2, designObj,
-                                           seed=seed, nEffMin=nEffMin)
+  for (k in 1:nSim) {
+    if (!is.null(seed)) seedNext <- seed + k
+
+    tempRes <- corTestRandomOrder(dat1, dat2, n1, n2, designObj,
+                                  seed=seedNext, nEffMin=nEffMin)
 
     nSamples[k] <- tempRes[["nSamples"]]
     eValues[k] <- tempRes[["eValue"]]
@@ -1869,7 +1783,7 @@ scenario2CorHelp <- function(someDat, designObj, factorLevels,
   return(res)
 }
 
-twoSampleCorTestRandomOrder <- function(
+corTestRandomOrder <- function(
     dat1, dat2, n1, n2, designObj,
     seed=NULL, nMax=NULL,
     nEffMin=2) {
@@ -1883,8 +1797,15 @@ twoSampleCorTestRandomOrder <- function(
 
   dat1XRun <- numeric(0)
   dat1YRun <- numeric(0)
-  dat2XRun <- numeric(0)
-  dat2YRun <- numeric(0)
+
+  if (designObj[["testType"]]=="oneSample") {
+    dat2XRun <- NULL
+    dat2YRun <- NULL
+  } else if (designObj[["testType"]]=="twoSample") {
+    dat2XRun <- numeric(0)
+    dat2YRun <- numeric(0)
+  }
+
 
   set.seed(seed)
   someOrder <- sample(nParticipants, nParticipants)
@@ -1912,7 +1833,11 @@ twoSampleCorTestRandomOrder <- function(
       dat2YRun <- c(dat2YRun, totalYVar[partId])
     }
 
-    someCheck <- checkXY(dat1XRun, dat2XRun, nMin=4)
+    if (designObj[["testType"]]=="twoSample") {
+      someCheck <- checkTwoSample(dat1XRun, dat2XRun, nMin=4)
+    } else if (designObj[["testType"]]=="oneSample") {
+      someCheck <- checkOneSample(dat1XRun, nMin=4)
+    }
 
     if (someCheck) {
       tempCor <- computeCor(x1=dat1XRun, y1=dat1YRun, x2=dat2XRun, y2=dat2YRun)
@@ -1923,9 +1848,16 @@ twoSampleCorTestRandomOrder <- function(
       n1Now <- length(dat1XRun)-3
       n2Now <- length(dat2XRun)-3
 
-      nEffNow <- n1Now*n2Now/(n1Now+n2Now)
+      if (designObj[["testType"]]=="oneSample") {
+        nEffNow <- n1Now
+        n2Now <- NULL
 
-      zScore <-  sqrt(nEffNow)*(atanh(r1)-atanh(r2))
+        zScore <-  sqrt(nEffNow)*(atanh(r1))
+      } else if (designObj[["testType"]]=="twoSample") {
+        nEffNow <- n1Now*n2Now/(n1Now+n2Now)
+
+        zScore <-  sqrt(nEffNow)*(atanh(r1)-atanh(r2))
+      }
 
       if (is.na(zScore) && nEffNow < nEffMin) {
         eNow <- 1
@@ -1938,15 +1870,9 @@ twoSampleCorTestRandomOrder <- function(
 
         eNow <- tempRes[["eValue"]]
 
-        if (is.infinite(eNow))
-          browser()
-
         tempRes <- try(saviFutilityZStat(z=zScore, n1=n1Now, n2=n2Now,
                                      parameter=designObj[["futilityResult"]][["parameter"]],
                                      alternative=designObj[["alternative"]]))
-
-        if (isTryError(tempRes))
-          browser()
 
         eFutNow <- tempRes[["eValue"]]
       }
@@ -1972,7 +1898,11 @@ computeScenario3CorOneSim <- function(
 
   nSources <- length(allSources)
 
-  factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
+  if (designObj[["testType"]]=="twoSample") {
+    factorLevels <- if (is.ordered(dat[["factor"]])) levels(dat[["factor"]]) else unique(dat[["factor"]])
+  } else if (designObj[["testType"]]=="oneSample") {
+    factorLevels <- NULL
+  }
 
   sourceDataTracker <- vector(mode="list", length=nSources)
   names(sourceDataTracker) <- allSources
@@ -1988,10 +1918,10 @@ computeScenario3CorOneSim <- function(
   names(logETracker) <- allSources
   logEFutTracker <- logETracker
 
-  nTotal <- length(dat$uID)
+  nTotal <- length(dat[["uID"]])
 
   set.seed(seed)
-  someOrder <- sample(unique(dat$uID), nTotal)
+  someOrder <- sample(unique(dat[["uID"]]), nTotal)
 
   # meta eValues are all 1 at the start
   #
@@ -2000,8 +1930,8 @@ computeScenario3CorOneSim <- function(
   for (j in seq_along(someOrder)) {
     someId <- someOrder[j]
 
-    someRow <- dat[which(dat$uID==someId), ]
-    someSource <- someRow$source
+    someRow <- dat[which(dat[["uID"]]==someId), ]
+    someSource <- someRow[["source"]]
 
     nSamples[[someSource]] <- nSamples[[someSource]] + 1
 
@@ -2018,25 +1948,39 @@ computeScenario3CorOneSim <- function(
 
     # Skip if sample size limit is reached within trial
     #
-    if (nPlanLimit && length(dat1X) >= designObj$nPlan[1] &&
-        length(dat2X) >= designObj$nPlan[2]) {
+    if (designObj[["testType"]]=="twoSample" &&
+        nPlanLimit && length(dat1X) >= designObj[["nPlan"]][1] &&
+        length(dat2X) >= designObj[["nPlan"]][2]) {
       next()
     }
+
+    if (designObj[["testType"]]=="oneSample" &&
+        nPlanLimit && length(dat1X) >= designObj[["nPlan"]][1])
+      next()
 
     # Skip if already stopped within trial
     #
     if (stopDecision[[someSource]]!=0)
       next()
 
-    if (someRow$factor==factorLevels[1]) {
-      sourceDataTracker[[someSource]]$dat1X <- dat1X <- c(dat1X, someRow$variable1)
-      sourceDataTracker[[someSource]]$dat1Y <- dat1Y <- c(dat1Y, someRow$variable2)
-    } else if (someRow$factor==factorLevels[2]) {
-      sourceDataTracker[[someSource]]$dat2X <- dat2X <- c(dat2X, someRow$variable1)
-      sourceDataTracker[[someSource]]$dat2Y <- dat2Y <- c(dat2Y, someRow$variable2)
-    }
+    if (designObj[["testType"]]=="twoSample") {
+      if (someRow[["factor"]]==factorLevels[1]) {
+        sourceDataTracker[[someSource]][["dat1X"]] <- dat1X <- c(dat1X, someRow[["variable1"]])
+        sourceDataTracker[[someSource]][["dat1Y"]] <- dat1Y <- c(dat1Y, someRow[["variable2"]])
+      } else if (someRow[["factor"]]==factorLevels[2]) {
+        sourceDataTracker[[someSource]][["dat2X"]] <- dat2X <- c(dat2X, someRow[["variable1"]])
+        sourceDataTracker[[someSource]][["dat2Y"]] <- dat2Y <- c(dat2Y, someRow[["variable2"]])
+      }
 
-    someCheck <- checkXY(dat1X, dat2X, nMin=4)
+      someCheck <- checkTwoSample(dat1X, dat2X, nMin=4)
+    } else if (designObj[["testType"]]=="oneSample") {
+      sourceDataTracker[[someSource]][["dat1X"]] <- dat1X <- c(dat1X, someRow[["variable1"]])
+      sourceDataTracker[[someSource]][["dat1Y"]] <- dat1Y <- c(dat1Y, someRow[["variable2"]])
+
+      dat2X <- dat2Y <- NULL
+
+      someCheck <- checkOneSample(dat1X, nMin=4)
+    }
 
     if (someCheck) {
       logEValueOld <- logETracker[[someSource]]
@@ -2050,14 +1994,21 @@ computeScenario3CorOneSim <- function(
       n1Now <- length(dat1X)-3
       n2Now <- length(dat2X)-3
 
-      nEffNow <- n1Now*n2Now/(n1Now+n2Now)
+      if (designObj[["testType"]]=="oneSample") {
+        nEffNow <- n1Now
+        n2Now <- NULL
+
+        zScore <-  sqrt(nEffNow)*(atanh(r1Now))
+      } else if (designObj[["testType"]]=="twoSample") {
+        nEffNow <- n1Now*n2Now/(n1Now+n2Now)
+
+        zScore <-  sqrt(nEffNow)*(atanh(r1Now)-atanh(r2Now))
+      }
 
       if (nEffNow < nEffMin) {
         tempRes <- list(eValue=1)
         tempResFut <- list(eValue=1)
       } else {
-        zScore <- sqrt(nEffNow)*(atanh(r1Now)-atanh(r2Now))
-
         tempRes <- saviZTestStat("z"=zScore, "n1"=n1Now, "n2"=n2Now,
                                  "parameter"=designObj[["parameter"]],
                                  "eType"=designObj[["eType"]],
@@ -2156,7 +2107,7 @@ perturbX <- function(x, sd=0.1) {
 
 
 manyLabsMetaScenarios <- function(
-    metaScenario=1, deltaMinFactor=0.7,
+    scenarioNumber=1, deltaMinFactor=0.7,
     alternative="greater", nSim=100,
     alpha=0.05, power=0.8, betaFutility=alpha,
     alphaMeta=alpha^4, betaFutilityMeta=alphaMeta,
@@ -2184,15 +2135,20 @@ manyLabsMetaScenarios <- function(
   if (is.null(designObjList))
     designObjList <- individualResultList
 
-  if (metaScenario==1) {
+  if (scenarioNumber==1) {
     nCol <- 7
-  } else if (metaScenario==2) {
+    nColFull <- 11
+  } else if (scenarioNumber==2) {
     nCol <- 7
-  } else if (metaScenario==3) {
+    nColFull <- 13
+  } else if (scenarioNumber==3) {
     nCol <- 5
+    nColFull <- 13
   }
 
   resultTable <- matrix(nrow=length(studyNames), ncol=nCol)
+
+  resultTableFull <- matrix(nrow=length(studyNames), ncol=nColFull)
 
   for (i in seq_along(studyNames)) {
     studyNeem <- studyNames[i]
@@ -2241,50 +2197,110 @@ manyLabsMetaScenarios <- function(
 
     ### analysis ------
     #
-    if (metaScenario==1) {
+    if (scenarioNumber==1) {
       res <- metaScenario1(
         dat=dat, allSources=allSources,
         designObj=designObj, seed=seed,
         nuMin=nuMin, alphaMeta=alphaMeta,
         betaFutilityMeta=betaFutilityMeta, nSim=nSim)
 
+      # Table --
+      resultTable[i, 7] <- sum(res[["n1Vec"]])+sum(res[["n2Vec"]])
+
       resultTable[i, 1] <- mean(res[["logMetaE"]])
       resultTable[i, 2] <- mean(res[["logMetaEFut"]])
       resultTable[i, 3] <- mean(res[["eValues"]] >= 1/alpha)*100
       resultTable[i, 4] <- mean(res[["eValuesFut"]] <= betaFutility)*100
       resultTable[i, 5] <- mean(res[["totalStoppingTimes"]])
-
-      resultTable[i, 7] <- dim(dat)[1]
       resultTable[i, 6] <- (1-resultTable[i, 5]/resultTable[i, 7])*100
 
-    } else if (metaScenario==2) {
+      # Full table --
+      resultTableFull[i, 11] <- sum(res[["n1Vec"]])+sum(res[["n2Vec"]])
+
+      resultTableFull[i, 1] <- mean(res[["logMetaE"]])
+      resultTableFull[i, 2] <- sd(res[["logMetaE"]])
+
+      resultTableFull[i, 3] <- mean(res[["logMetaEFut"]])
+      resultTableFull[i, 4] <- sd(res[["logMetaEFut"]])
+
+      resultTableFull[i, 5] <- mean(res[["eValues"]] >= 1/alpha)*100
+
+      resultTableFull[i, 6] <- mean(res[["eValuesFut"]] <= betaFutility)*100
+
+      resultTableFull[i, 7] <- mean(res[["totalStoppingTimes"]])
+      resultTableFull[i, 8] <- sd(res[["totalStoppingTimes"]])
+
+      resultTableFull[i, 9] <- (1-resultTableFull[i, 7]/resultTableFull[i, 11])*100
+      resultTableFull[i, 10] <- resultTableFull[i, 8]/resultTableFull[i, 11]*100
+
+    } else if (scenarioNumber==2) {
       res <- metaScenario2(
         dat=dat, allSources=allSources,
         designObj=designObj, seed=seed,
         nuMin=nuMin, nSim=nSim)
 
-      resultTable[i, 1] <- mean(res[["logMetaE"]])
-      resultTable[i, 2] <- mean(res[["logMetaEFut"]])
+      # Table --
+      logMetaE <- rowSums(log(res[["eValues"]]))
+      logMetaEFut <- rowSums(log(res[["eValuesFut"]]))
+
+      resultTable[i, 7] <- dim(dat)[1]
+
+      resultTable[i, 1] <- mean(logMetaE)
+      resultTable[i, 2] <- mean(logMetaEFut)
       resultTable[i, 3] <- mean(res[["alternativeProportion"]])*100
       resultTable[i, 4] <- mean(res[["futilityProportion"]])*100
       resultTable[i, 5] <- mean(res[["totalStoppingTimes"]])
-
-      resultTable[i, 7] <- dim(dat)[1]
       resultTable[i, 6] <- (1-resultTable[i, 5]/resultTable[i, 7])*100
-    } else if (metaScenario==3) {
+
+      # Table full --
+      resultTableFull[i, 13] <- dim(dat)[1]
+
+      resultTableFull[i, 1] <- mean(logMetaE)
+      resultTableFull[i, 2] <- sd(logMetaE)
+      resultTableFull[i, 3] <- mean(logMetaEFut)
+      resultTableFull[i, 4] <- sd(logMetaEFut)
+      resultTableFull[i, 5] <- mean(res[["alternativeProportion"]])*100
+      resultTableFull[i, 6] <- sd(res[["alternativeProportion"]])*100
+      resultTableFull[i, 7] <- mean(res[["futilityProportion"]])*100
+      resultTableFull[i, 8] <- sd(res[["futilityProportion"]])*100
+      resultTableFull[i, 9] <- mean(res[["totalStoppingTimes"]])
+      resultTableFull[i, 10] <- sd(res[["totalStoppingTimes"]])
+      resultTableFull[i, 11] <- (1-resultTableFull[i, 9]/resultTableFull[i, 13])*100
+      resultTableFull[i, 12] <- resultTableFull[i, 10]/resultTableFull[i, 13]*100
+    } else if (scenarioNumber==3) {
       res <- metaScenario3(
         dat=dat, allSources=allSources,
         designObj=designObj, alphaMeta=alphaMeta,
         betaFutilityMeta=betaFutilityMeta, nuMin=nuMin,
         nSim=nSim, seed=seed)
 
+      # Table
+      #
+      resultTable[i, 5] <- dim(dat)[1]
+
       resultTable[i, 1] <- mean(res[["logMetaE"]])
       resultTable[i, 2] <- mean(res[["logMetaEFut"]])
       resultTable[i, 3] <- mean(res[["totalStoppingTimes"]])
-      resultTable[i, 5] <- dim(dat)[1]
       resultTable[i, 4] <- (1-resultTable[i, 3]/resultTable[i, 5])*100
+
+      # Table full
+      #
+      resultTableFull[i, 13] <- dim(dat)[1]
+
+      resultTableFull[i, 1] <- mean(res[["logMetaE"]])
+      resultTableFull[i, 2] <- sd(res[["logMetaE"]])
+      resultTableFull[i, 3] <- mean(res[["logMetaEFut"]])
+      resultTableFull[i, 4] <- sd(res[["logMetaEFut"]])
+      resultTableFull[i, 5] <- mean(res[["alternativeProportion"]])*100
+      resultTableFull[i, 6] <- sd(res[["alternativeProportion"]])*100
+      resultTableFull[i, 7] <- mean(res[["futilityProportion"]])*100
+      resultTableFull[i, 8] <- sd(res[["futilityProportion"]])*100
+      resultTableFull[i, 9] <- mean(res[["totalStoppingTimes"]])
+      resultTableFull[i, 10] <- sd(res[["totalStoppingTimes"]])
+      resultTableFull[i, 11] <- (1-resultTableFull[i, 9]/resultTableFull[i, 13])*100
+      resultTableFull[i, 12] <- resultTableFull[i, 10]/resultTableFull[i, 13]*100
     } else {
-      stop("Only metaScenario %in% c(1, 2, 3) available")
+      stop("Only scenarioNumber %in% c(1, 2, 3) available")
     }
 
     individualResultList[[studyNeem]] <- res
@@ -2293,13 +2309,31 @@ manyLabsMetaScenarios <- function(
   resultTable <- as.data.frame(resultTable)
   rownames(resultTable) <- studyNames
 
-  if (metaScenario %in% 1:2) {
-    colnames(resultTable) <- c("logMetaE", "logMetaEFut", "Reject H0", "Reject H1", "nStop", "Savings %", "nTotal")
-  } else if (metaScenario==3) {
-    colnames(resultTable) <- c("logMetaE", "logMetaEFut", "nStop", "Savings %", "nTotal")
+  if (scenarioNumber %in% 1:2) {
+    colnames(resultTable) <- c("logMetaE", "logMetaEFut",
+                               "Reject H0", "Reject H1",
+                               "nStop", "Savings %", "nTotal")
+  } else if (scenarioNumber==3) {
+    colnames(resultTable) <- c("logMetaE", "logMetaEFut",
+                               "nStop", "Savings %", "nTotal")
   }
 
-  res <- list(resultTable=resultTable, designObjList=designObjList, individualResultList=individualResultList)
+  rownames(resultTableFull) <- studyNames
+
+  if (scenarioNumber==1) {
+    colnames(resultTableFull) <- c("logMetaE", "sd(logMetaE)", "logMetaEFut",
+                                   "sd(logMetaEFut)", "Reject H0", "Reject H1",
+                                   "nStop", "sd(nStop)", "Savings %",
+                                   "sd(Savings) %", "nTotal")
+  } else if (scenarioNumber %in% 2:3) {
+    colnames(resultTableFull) <- c("logMetaE", "sd(logMetaE)", "logMetaEFut",
+                                   "sd(logMetaEFut)", "Reject H0", "sd(Reject H0)",
+                                   "Reject H1", "sd(Reject H1)",
+                                   "nStop", "sd(nStop)", "Savings %",
+                                   "sd(Savings) %", "nTotal")
+  }
+
+  res <- list(resultTable=resultTable, resultTableFull=resultTableFull, designObjList=designObjList, individualResultList=individualResultList)
 
   class(res) <- "saviManyLabs2"
   return(res)
