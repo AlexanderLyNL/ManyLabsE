@@ -14,9 +14,9 @@ source(file.path(project.root, "00_utils", "helpers.R"))
 # fileNeem <- "Tversky_1_clean_tables.csv"
 
 # authorNeem <- "Rottenstreich"
-authorNeem <- "Tversky"
+# authorNeem <- "Tversky"
 # authorNeem <- "Hauser1"
-# authorNeem <- "Hauser2"
+authorNeem <- "Hauser2"
 
 fileNeem <- switch(authorNeem,
                    Rottenstreich="Rottenstreich_1_clean_tables.csv",
@@ -28,10 +28,45 @@ fileNeem <- switch(authorNeem,
 tableFile <- paste0(myWd, "data/", fileNeem)
 dat <- read.csv(file=tableFile)
 
+names(dat) <- c("source", "ya", "yb", "na", "nb")
+
+# save(dat, file="hauser2.RData")
+
 dim(dat)
 head(dat)
 
+debugonce(scenario12x2Help)
 
+
+res1TwoSided <- manyLabsMetaScenarios(1, nSim=1e3L, alternative="twoSided")
+
+res1DeltaMinFactor$resultTable
+res1$resultTable
+res1TwoSided$resultTable
+
+
+res1TwoSided$individualResultList$tversky$logMetaE
+res1TwoSided$individualResultList$tversky$logMetaEFut
+
+res1TwoSided$individualResultList$rottenstreich$logMetaE
+res1TwoSided$individualResultList$rottenstreich$logMetaEFut
+
+res1DeltaMinFactor <- res1
+
+res1$resultTable
+res1DeltaMinFactor$resultTable
+res1TwoSided$resultTable
+res1$resultTableFull
+
+# save(res1, res1DeltaMinFactor, res1TwoSided, file="2x2TestAll.RData")
+
+res1B <- res1
+res1DeltaMinFactorB <- res1DeltaMinFactor
+res1TwoSidedB <- res1TwoSided
+
+# remove(res1, res1DeltaMinFactor, res1TwoSided)
+
+load(file="2x2TestAll.RData")
 # allSources <- checkEnoughDataInTable(dat)$allSources
 names(dat)
 names(dat) <- c("source", "ya", "yb", "na", "nb")
@@ -196,3 +231,4 @@ saviFutilityTwoPropConditionalStat(sum(dat$ya), sum(dat$na), sum(dat$nb), sum(da
                            logOddsRatio=0.40)
 
 
+#

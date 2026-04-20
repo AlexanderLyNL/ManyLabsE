@@ -171,7 +171,7 @@ freqTest$value$conf.int
 
 # Alexander ----
 dat <- addSources(ML2.var, ML2.df)
-# save(dat, stat.params, file="inbar.RData")
+# save(dat, stat.params, file="schwarz.RData")
 
 dat <- checkUniqueIds(dat)
 tempRes <- removeOneConditionSources(dat)

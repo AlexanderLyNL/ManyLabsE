@@ -13,13 +13,10 @@ OSFdata.root <- file.path(project.root, "OSFdata")
 source(file.path(project.root, "00_utils", "WYQ_manylabRs_SOURCE.R"))
 source(file.path(project.root, "00_utils", "helpers.R"))
 
-
 # ANALYSIS INFO ----
-
-
-study.description      <- 'Choosing or Rejecting (Shafir, 1993)'
-analysis.unique.id     <- 74
-analysis.name          <- 'Shafir.1'
+study.description      <- 'Social Value Orientation (Van Lange et al., 1997)'
+analysis.unique.id     <- 38
+analysis.name          <- 'vanLange.1'
 analysis.type          <- 1
 analysis.type.name     <- 'study_global_include'
 analysis.type.groups   <- 'Source.Global'
@@ -28,16 +25,17 @@ Nmin.cond              <- 15
 subset                 <- 'all'
 onlineTables           <- TRUE
 staticData             <- TRUE
+
 saveAll                <- FALSE
 overWrite              <- FALSE
-#OSFdata.root           <- file.path('~','OSFdata')
+#OSFdata.root           <- paste0(myWd, "ManyLabsE/", "OSFdata") #file.path('~','OSFdata')
 analysis.root          <- file.path(OSFdata.root,study.description,analysis.name,'Global')
 outdir                 <- list(Data = file.path(analysis.root,'Data'), Results = file.path(analysis.root,'Results'))
 
 
 # This function will be used to change the raw dataset to a dataset ready for analysis
 
-varfun.Shafir.1
+varfun.vanLange.1
 
 
 if(dplyr::between(analysis.type,2,3)){subset <- "all"}
@@ -59,9 +57,6 @@ if(onlineTables){
   # Get info about the sites
   SourceInfoTable    <- rio::import(file.path(OSFdata.root,"!!KeyTables","ML2_SourceInfoTable.csv"))
 }
-
-
-
 
 # GET DATA ----
 
@@ -99,7 +94,7 @@ ML2.id <- get.chain(ML2.in)
 
 # Apply the df chain to select relevant subset of variables
 
-ML2.df <- ML2.df  %>% dplyr::select(1,6,285,290,804,903,904,905,906,907,908,909,910,911,912,913,914,937,938,939) %>% dplyr::filter(is.character(source))
+ML2.df <- ML2.df  %>% dplyr::select(1,6,343,344,345,346,347,348,353,354,520,521,522,523,524,525,526,527,528,529,530,531,534,535,536) %>% dplyr::filter(is.character(source))
 
 
 
@@ -184,10 +179,8 @@ if(length(toRun$studiess)>0){
 
       if(all(nMin1,nMin2)){
 
-        # To see the function code type:varfun.Shafir.1, or lookup in manylabRs_SOURCE.R
-        ML2.var[[g]] <- varfun.Shafir.1(ML2.sr[[g]])
-
-
+        # To see the function code type:varfun.vanLange.1, or lookup in manylabRs_SOURCE.R
+        ML2.var[[g]] <- varfun.vanLange.1(ML2.sr[[g]])
 
 
         # Check equal variance assumption
@@ -201,7 +194,7 @@ if(length(toRun$studiess)>0){
         stat.params <<- ML2.in$stat.params
 
 
-        stat.test   <- try.CATCH(with(ML2.var[[g]],z.test(x = ParentB, pi = .5, N = sum(N, na.rm=TRUE), proportion = TRUE, alternative = stat.params$alternative)))
+        stat.test   <- try.CATCH(with(ML2.var[[g]],cor_test_fisherZ(r1=matrix(c(SVO.index,Siblings),ncol=2), r2=NULL, n1=N[1], n2=NULL, conf.level=stat.params$conf.level, alternative = stat.params$alternative)))
 
 
         # Check for errors and warnings
@@ -434,69 +427,61 @@ if(length(toRun$studiess)>0){
   }
 }
 
+dat <- addUniqueIds(ML2.var, ML2.df)
 
+# Freq analysis -------
+stat.test   <- try.CATCH(with(ML2.var[[g]],cor_test_fisherZ(r1=matrix(c(SVO.index,Siblings),ncol=2), r2=NULL, n1=N[1], n2=NULL, conf.level=stat.params$conf.level, alternative = stat.params$alternative)))
 
+freqTest <- stat.test$value
+freqTest$estimate
+freqTest$p.value
+freqTest$conf.int
 
 # Alexander -------
-dat <- addUniqueIds(ML2.var, ML2.df)
+# save(dat, stat.params, file="vanLange.RData")
+
+
 dat <- checkUniqueIds(dat)
 
-
-# Freq ----
-count <- as.integer(dat$variable1=="Parent B")
-dat$count <- count
-
-datAward <- dat[dat$variable2=="Award", ]
-datDeny <- dat[dat$variable2=="Deny", ]
-
-meansAward <- datAward %>%
-  summarise(mean=mean(count, na.rm=TRUE))
-
-meansDeny <- datDeny %>%
-  summarise(mean=mean(count, na.rm=TRUE))
-
-length(dat$count)
-allMeans <- (meansAward$mean+meansDeny$mean)/2
-
-
-seVec <- sqrt(0.5*(1-0.5)/length(count))
-
-zStat <- (allMeans-0.5)/seVec
-
-1-pnorm(abs(zStat))
-
-
-
-# save(dat, stat.params, file="shafir.RData")
+allSources <- unique(dat[["source"]])
 
 # Here -------
-binomDiff <- ((.64+.55)/2-0.5)
-deltaMin <- sqrt(4*binomDiff^2/(1-binomDiff^2))
+rOri <- 0.25
+deltaMin <- 2*rOri/sqrt(1-rOri^2)
 
 alpha <- 0.05
 betaFutility <- alpha
 varEqual <- NULL
 power <- 0.8
-alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
-wantCi <- FALSE
+# alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
+alternative <- "greater"
 
 alphaMeta <- alpha^4
 betaFutilityMeta <- alphaMeta
 
-
+set.seed(1234)
 designObj <- designSaviZ(
   meanDiffMin=deltaMin, beta=0.05,
-  testType="oneSample", sigma = 0.5,
-  alternative="greater", seed=5,
+  testType="oneSample",
+  alternative=alternative,
   futility = TRUE)
 
+designObj[["testName"]] <- "Correlation"
 
-# Scenario 1
-allSources = unique(dat$source)
+allSources <- unique(dat$source)
 
 
-res1 <- scenario1Z_binomial(dat=dat, allSources=allSources, designObj=designObj, alpha=alpha, betaFutility=betaFutility,
-                            nSim=1e3, alternative=alternative)
+
+# Scenario 1 ----
+# debugonce(scenario1CorHelp)
+res1 <- metaScenario1(dat=dat, allSources=allSources, designObj=designObj,
+                      alphaMeta=alphaMeta,
+                      betaFutilityMeta=betaFutilityMeta,
+                      nSim=1e3)
+
+
+res1a <- scenario1ZCorr(dat=dat, allSources=allSources, designObj=designObj, alpha=alpha, betaFutility=betaFutility,
+                       nSim=1e3, alternative=alternative)
 
 
 
@@ -524,10 +509,9 @@ mean(res1$totalStoppingTimes)
 sd(res1$totalStoppingTimes)
 
 
-# Scenario 2
+# Scenario 2 ----
+res2 <- metaScenario2(dat, allSources, designObj=designObj, seed=1, nSim = 5) # nSim=1e3)
 
-
-res2 <- scenario2Z_binomial(dat, allSources, designObj=designObj, seed=1, nSim = 50) # nSim=1e3)
 
 logMetaE<- rowSums(log(res2$eValues))
 mean(logMetaE)
@@ -543,31 +527,40 @@ sd(res2$alternativeProportion)
 mean(res2$futilityProportion)
 sd(res2$futilityProportion)
 
-
 mean(res2$totalStoppingTimes)
 sd(res2$totalStoppingTimes)
 
-# Scenario 3
+# Scenario 3 ----
+res3 <- metaScenario3(dat=dat, allSources=allSources, designObj=designObj,
+                     alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
+                     nuMin=nuMin, nSim = 5)
 
+res3a <- scenario3ZCorr(dat=dat, allSources=allSources, designObj=designObj,
+                        alpha=alphaMeta, betaFutility=betaFutilityMeta,
+                        nuMin=nuMin, nSim = 1e2L) #nSim=1e3L)
 
-res3 <- scenario3ZBinom(dat=dat, allSources=allSources, designObj=designObj,
-                        alpha=alpha, betaFutility=betaFutility,
-                        nuMin=nuMin, nSim = 50) #nSim=1e3L)
 
 mean(res3$logMetaE)
+mean(res3a$logMetaE)
 sd(res3$logMetaE)
+sd(res3a$logMetaE)
 
 mean(res3$logMetaEFut)
+mean(res3a$logMetaEFut)
 sd(res3$logMetaEFut)
+sd(res3a$logMetaEFut)
 
 mean(res3$alternativeProportion)
+mean(res3a$alternativeProportion)
 sd(res3$alternativeProportion)
+sd(res3a$alternativeProportion)
 
 mean(res3$futilityProportion)
+mean(res3a$futilityProportion)
 sd(res3$futilityProportion)
+sd(res3a$futilityProportion)
 
 mean(res3$totalStoppingTimes)
+mean(res3a$totalStoppingTimes)
 sd(res3$totalStoppingTimes)
-
-
-
+sd(res3a$totalStoppingTimes)

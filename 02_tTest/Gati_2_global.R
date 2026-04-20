@@ -170,6 +170,9 @@ designObj <- designSaviT(alpha=alpha, power=power,
                          betaFutility=betaFutility,
                          varEqual=varEqual, testType="oneSample",
                          alternative=alternative)
+dir()
+load("~/Desktop/git/manyLabsE/02_tTest/gati.RData")
+
 
 # Scenario 1 ----
 res1 <- metaScenario1(dat=dat, allSources=allSources, designObj=designObj,
@@ -225,7 +228,7 @@ mean(res2$totalStoppingTimes)
 sd(res2$totalStoppingTimes)
 
 #Scenario 3 ------
-
+nuMin <- 3
 res3 <- metaScenario3(dat=dat, allSources=allSources, designObj=designObj,
                       alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
                       nuMin=nuMin, nSim=10)
@@ -248,3 +251,4 @@ mean(res3$totalStoppingTimes)
 sd(res3$totalStoppingTimes)
 
 # save(res1, res2, res3, file="gati2Result.RData")
+
