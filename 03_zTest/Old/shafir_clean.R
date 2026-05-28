@@ -456,7 +456,7 @@ dat <- checkUniqueIds(dat)
 
 # Here -------
 alpha <- 0.05
-betaFutility <- 0.2
+betaMinEffi <- 0.2
 
 count <- as.integer(dat$variable1=="Parent B")
 dat$count <- count
@@ -599,7 +599,7 @@ for (i in seq_along(eValueVec)) {
 
 
 eValueVec > 1/alpha
-eValueFutVec < betaFutility
+eValueFutVec < betaMinEffi
 
 # Scenario 1 ----
 #
@@ -622,8 +622,8 @@ lines(eFutMetaAverage, col="red")
 which(eMeta > 1/alpha)
 which(eMetaAverage > 1/alpha)
 
-which(eFutMeta < betaFutility)
-which(eFutMetaAverage < betaFutility)
+which(eFutMeta < betaMinEffi)
+which(eFutMetaAverage < betaMinEffi)
 
 # Scenario 2 ----
 # Result containers
@@ -633,7 +633,7 @@ allSources <- unique(dat$source)
 numeric(length(allSources))
 
 nVec  <- firstTimes <- eValues <- numeric(length(allSources))
-nFutVec <- firstTimesFut <- eValuesFut <- numeric(length(allSources))
+nFutVec <- firstTimesFut <- eValuesMinEffi <- numeric(length(allSources))
 
 
 allEValueVecs <- matrix(nrow=maxN,
@@ -710,7 +710,7 @@ for (i in 1:length(allSources)) {
   }
 
   firstTimes[i] <- min(which(allEValueVecs[, i] >= 1/alpha))
-  firstTimesFut[i] <- min(which(allEValueFutVecs[, i] <= betaFutility))
+  firstTimesFut[i] <- min(which(allEValueFutVecs[, i] <= betaMinEffi))
 }
 # loop end ----
 firstTimes
@@ -731,5 +731,5 @@ lines(eFutMetaAverage, col="red")
 which(eMeta >= 1/alpha)
 which(eMetaAverage > 1/alpha)
 
-which(eFutMeta < betaFutility)
-which(eFutMetaAverage < betaFutility)
+which(eFutMeta < betaMinEffi)
+which(eFutMetaAverage < betaMinEffi)

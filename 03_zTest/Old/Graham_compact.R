@@ -476,7 +476,7 @@ dat <- checkUniqueIds(dat)
 
 # Here -------
 alpha <- 0.05
-betaFutility <- alpha
+betaMinEffi <- alpha
 
 rOri <- 0.25
 deltaMin <- 2*rOri/sqrt(1-rOri^2)
@@ -495,19 +495,19 @@ allSources <- unique(dat$source)
 alternative <- "twoSided"
 allSources <- unique(dat$source)
 
-res1 <- scenario1ZCorr(dat=dat, allSources=allSources, designObj=designObj, alpha=alpha, betaFutility=betaFutility,
+res1 <- scenario1ZCorr(dat=dat, allSources=allSources, designObj=designObj, alpha=alpha, betaMinEffi=betaMinEffi,
                             nSim=1e3, alternative=alternative)
 
 
 
 mean(res1$eValues >= 1/alpha)
-mean(res1$eValuesFut <= betaFutility)
+mean(res1$eValuesMinEffi <= betaMinEffi)
 
 res1$nStudiesAlternativeWorstCase
-res1$nStudiesFutilityWorstCase
+res1$nStudiesMinEffiWorstCase
 
 res1$nSamplesAlternativeWorstCase
-res1$nSamplesFutilityWorstCase
+res1$nSamplesMinEffiWorstCase
 
 mean(res1$stopDecision==1)
 mean(res1$stopDecision==-1)
@@ -517,8 +517,8 @@ mean(res1$nStudies)
 mean(res1$logMetaE)
 sd(res1$logMetaE)
 
-mean(res1$logMetaEFut)
-sd(res1$logMetaEFut)
+mean(res1$logMetaEMinEffi)
+sd(res1$logMetaEMinEffi)
 
 mean(res1$totalStoppingTimes)
 sd(res1$totalStoppingTimes)
@@ -533,15 +533,15 @@ logMetaE<- rowSums(log(res2$eValues))
 mean(logMetaE)
 sd(logMetaE)
 
-logMetaEFut <- rowSums(log(res2$eValuesFut))
-mean(logMetaEFut)
-sd(logMetaEFut)
+logMetaEMinEffi <- rowSums(log(res2$eValuesMinEffi))
+mean(logMetaEMinEffi)
+sd(logMetaEMinEffi)
 
 mean(res2$alternativeProportion)
 sd(res2$alternativeProportion)
 
-mean(res2$futilityProportion)
-sd(res2$futilityProportion)
+mean(res2$minEffiProportion)
+sd(res2$minEffiProportion)
 
 
 mean(res2$totalStoppingTimes)
@@ -550,20 +550,20 @@ sd(res2$totalStoppingTimes)
 # Scenario 3
 
 res3 <- scenario3ZCorr(dat=dat, allSources=allSources, designObj=designObj,
-                        alpha=alpha, betaFutility=betaFutility,
+                        alpha=alpha, betaMinEffi=betaMinEffi,
                         nuMin=nuMin, nSim = 50) #nSim=1e3L)
 
 mean(res3$logMetaE)
 sd(res3$logMetaE)
 
-mean(res3$logMetaEFut)
-sd(res3$logMetaEFut)
+mean(res3$logMetaEMinEffi)
+sd(res3$logMetaEMinEffi)
 
 mean(res3$alternativeProportion)
 sd(res3$alternativeProportion)
 
-mean(res3$futilityProportion)
-sd(res3$futilityProportion)
+mean(res3$minEffiProportion)
+sd(res3$minEffiProportion)
 
 mean(res3$totalStoppingTimes)
 sd(res3$totalStoppingTimes)

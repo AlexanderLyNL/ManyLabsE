@@ -452,14 +452,14 @@ head(dat)
 
 
 alpha <- 0.05
-betaFutility <- 0.2
+betaMinEffi <- 0.2
 
 #rOri <- 0.25
 deltaMin <- 0.19#2*rOri/sqrt(1-rOri^2)
 # atanh(rOri)
 designObj <- designSaviZ(
   deltaMin, power=0.8,
-  futility=TRUE, alternative="twoSided",
+  minEffiTest=TRUE, alternative="twoSided",
   wantSampling=FALSE)
 
 allSources <- unique(dat$source)
@@ -495,7 +495,7 @@ for (i in seq_along(rVec)) {
 }
 
 which(eValueVec > 1/alpha)
-which(eValueFutVec < betaFutility)
+which(eValueFutVec < betaMinEffi)
 
 
 #
@@ -504,11 +504,11 @@ eFutMeta <- exp(cumsum(log(eValueFutVec)))
 
 
 which(eMeta >= 1/alpha)
-which(eFutMeta <= betaFutility)
+which(eFutMeta <= betaMinEffi)
 
 plot(eMeta, log="y", type="l")
 lines(eFutMeta, col="red")
-abline(h=betaFutility)
+abline(h=betaMinEffi)
 abline(h=1/alpha, col="blue")
 
 
@@ -516,13 +516,13 @@ abline(h=1/alpha, col="blue")
 
 # Stopping time
 
-get_stop_time <- function(eVec, futVec, alpha, betaFutility) {
+get_stop_time <- function(eVec, futVec, alpha, betaMinEffi) {
   
   eMeta <- exp(cumsum(log(eVec)))
   eFutMeta <- exp(cumsum(log(futVec)))
   
   stop_reject <- which(eMeta >= 1/alpha)[1]
-  stop_fut <- which(eFutMeta <= betaFutility)[1]
+  stop_fut <- which(eFutMeta <= betaMinEffi)[1]
   
   stop_reject <- ifelse(is.na(stop_reject), Inf, stop_reject)
   stop_fut <- ifelse(is.na(stop_fut), Inf, stop_fut)
@@ -548,7 +548,7 @@ for(i in 1:m){
   e_perm <- eValueVec[perm]
   fut_perm <- eValueFutVec[perm]
   
-  res <- get_stop_time(e_perm, fut_perm, alpha, betaFutility)
+  res <- get_stop_time(e_perm, fut_perm, alpha, betaMinEffi)
   
   stops[i] <- res$stop
 }
@@ -563,7 +563,7 @@ for(i in 1:m){
   
   perm <- sample(n)
   
-  res <- get_stop_time(eValueVec[perm], eValueFutVec[perm], alpha, betaFutility)
+  res <- get_stop_time(eValueVec[perm], eValueFutVec[perm], alpha, betaMinEffi)
   
   if(res$reject < res$futility) type[i] <- "reject"
   else if(res$futility < res$reject) type[i] <- "futility"
@@ -574,7 +574,7 @@ mean(type == "futility")# Over 90% times we stopped for futility
 e_worst <- sort(eValueVec)              # smallest first
 fut_worst <- sort(eValueFutVec, decreasing = TRUE)
 
-res_worst <- get_stop_time(e_worst, fut_worst, alpha, betaFutility)
+res_worst <- get_stop_time(e_worst, fut_worst, alpha, betaMinEffi)
 
 res_worst
 
@@ -684,11 +684,11 @@ aggFut <- aggregate_mult(eValueFutMat2)
 
 
 which(aggE >= 1/alpha)
-which(aggFut <= betaFutility)
+which(aggFut <= betaMinEffi)
 
 plot(aggE, log="y", type="l")
 lines(aggFut, col="red")
-abline(h=betaFutility)
+abline(h=betaMinEffi)
 abline(h=1/alpha, col="blue")
 
 plot(aggFut, log="y", type="l")
@@ -730,7 +730,7 @@ for (m in 1:M) {
   aggFut <- aggregate_mult(eValueFutMat2)
   
   stopE <- which(aggE >= 1/alpha)[1]
-  stopF <- which(aggFut <= betaFutility)[1]
+  stopF <- which(aggFut <= betaMinEffi)[1]
   stopE <- ifelse(is.na(stopE), Inf, stopE)
   stopF <- ifelse(is.na(stopF), Inf, stopF)
   
@@ -788,11 +788,11 @@ aggRandFut <- aggregate_random(eValueFutMat2, last_obs)
 
 
 which(aggRandE >= 1/alpha)
-which(aggRandFut <= betaFutility)
+which(aggRandFut <= betaMinEffi)
 
 plot(aggRandE, log="y", type="l")
 lines(aggRandFut, col="red")
-abline(h=betaFutility)
+abline(h=betaMinEffi)
 abline(h=1/alpha, col="blue")
 
 
@@ -817,7 +817,7 @@ for (m in 1:M) {
   
   
   stopE <- which(aggRandE >= 1/alpha)[1]
-  stopF <- which(aggRandFut <= betaFutility)[1]
+  stopF <- which(aggRandFut <= betaMinEffi)[1]
   stopE <- ifelse(is.na(stopE), Inf, stopE)
   stopF <- ifelse(is.na(stopF), Inf, stopF)
   

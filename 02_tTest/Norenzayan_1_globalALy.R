@@ -150,7 +150,7 @@ if (stat.params$alternative=="two.sided")
 
 # Here -------
 alpha <- 0.05
-betaFutility <- alpha
+betaMinEffi <- alpha
 # deltaMin <- 0.69
 deltaMin <- 0.35
 varEqual <- stat.params$var.equal
@@ -160,25 +160,25 @@ wantCi <- FALSE
 
 set.seed(1234)
 designObj <- designSaviT(alpha=alpha, power=power,
-                         deltaMin=deltaMin, futility=TRUE,
-                         betaFutility=betaFutility,
+                         deltaMin=deltaMin, minEffiTest=TRUE,
+                         betaMinEffi=betaMinEffi,
                          varEqual=varEqual, testType="twoSample",
                          alternative=alternative)
 
 # Scenario 1 ----
 res1 <- metaScenario1(dat=dat, allSources=allSources, designObj=designObj,
                       nuMin=3, alphaMeta=alphaMeta,
-                      betaFutilityMeta=betaFutilityMeta,
+                      betaMinEffiMeta=betaMinEffiMeta,
                       nSim=1e3)
 
 mean(res1$eValues >= 1/alpha)
-mean(res1$eValuesFut <= betaFutility)
+mean(res1$eValuesMinEffi <= betaMinEffi)
 
 res1$nStudiesAlternativeWorstCase
-res1$nStudiesFutilityWorstCase
+res1$nStudiesMinEffiWorstCase
 
 res1$nSamplesAlternativeWorstCase
-res1$nSamplesFutilityWorstCase
+res1$nSamplesMinEffiWorstCase
 
 mean(res1$stopDecision==1)
 mean(res1$stopDecision==-1)
@@ -188,8 +188,8 @@ mean(res1$nStudies)
 mean(res1$logMetaE)
 sd(res1$logMetaE)
 
-mean(res1$logMetaEFut)
-sd(res1$logMetaEFut)
+mean(res1$logMetaEMinEffi)
+sd(res1$logMetaEMinEffi)
 
 mean(res1$totalStoppingTimes)
 sd(res1$totalStoppingTimes)
@@ -202,15 +202,15 @@ logMetaE<- rowSums(log(res2$eValues))
 mean(logMetaE)
 sd(logMetaE)
 
-logMetaEFut <- rowSums(log(res2$eValuesFut))
-mean(logMetaEFut)
-sd(logMetaEFut)
+logMetaEMinEffi <- rowSums(log(res2$eValuesMinEffi))
+mean(logMetaEMinEffi)
+sd(logMetaEMinEffi)
 
 mean(res2$alternativeProportion)
 sd(res2$alternativeProportion)
 
-mean(res2$futilityProportion)
-sd(res2$futilityProportion)
+mean(res2$minEffiProportion)
+sd(res2$minEffiProportion)
 
 
 mean(res2$totalStoppingTimes)
@@ -219,7 +219,7 @@ sd(res2$totalStoppingTimes)
 #Scenario 3 ------
 
 res3 <- metaScenario3(dat=dat, allSources=allSources, designObj=designObj,
-                      alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
+                      alphaMeta=alphaMeta, betaMinEffiMeta=betaMinEffiMeta,
                       nuMin=nuMin, nSim=1e3L)
 
 
@@ -227,14 +227,14 @@ res3 <- metaScenario3(dat=dat, allSources=allSources, designObj=designObj,
 mean(res3$logMetaE)
 sd(res3$logMetaE)
 
-mean(res3$logMetaEFut)
-sd(res3$logMetaEFut)
+mean(res3$logMetaEMinEffi)
+sd(res3$logMetaEMinEffi)
 
 mean(res3$alternativeProportion)
 sd(res3$alternativeProportion)
 
-mean(res3$futilityProportion)
-sd(res3$futilityProportion)
+mean(res3$minEffiProportion)
+sd(res3$minEffiProportion)
 
 mean(res3$totalStoppingTimes)
 sd(res3$totalStoppingTimes)

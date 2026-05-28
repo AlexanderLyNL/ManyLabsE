@@ -131,11 +131,11 @@ original_study_estimated_effect_size <- 0.5
 esMinFutility <- 0.7*original_study_estimated_effect_size
 deltaMin <- 0.7*original_study_estimated_effect_size 
 alpha <- 0.1
-betaFutility <- 0.1
+betaMinEffi <- 0.1
 
 # permute the rows of ECDF to avoid only sampling one group
 PECDF <- extendedCleanDataFilter[sample(nrow(extendedCleanDataFilter)), ]
-sequential_results_list <- full_seq_t_test_analysis(PECDF, alpha, betaFutility, deltaMin, esMinFutility, varEqual = varEqual)
+sequential_results_list <- full_seq_t_test_analysis(PECDF, alpha, betaMinEffi, deltaMin, esMinFutility, varEqual = varEqual)
 #view(sequential_results_list$sequential_results)
 eValueMat <- sequential_results_list$eValueMat
 fValueMat <- sequential_results_list$fValueMat

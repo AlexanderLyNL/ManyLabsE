@@ -138,12 +138,12 @@ original_study_estimated_effect_size <- 0.68
 esMinFutility <- original_study_estimated_effect_size
 deltaMin <- original_study_estimated_effect_size 
 alpha <- 0.05
-betaFutility <- 0.05
+betaMinEffi <- 0.05
 
 # permute the rows of ECDF to avoid only sampling one group
 set.seed(1)
 PECDF <- extendedCleanDataFilter[sample(nrow(extendedCleanDataFilter)), ]
-sequential_results_list <- full_seq_t_test_analysis(PECDF, alpha, betaFutility, deltaMin, esMinFutility, varEqual = varEqual)
+sequential_results_list <- full_seq_t_test_analysis(PECDF, alpha, betaMinEffi, deltaMin, esMinFutility, varEqual = varEqual)
 #view(sequential_results_list$sequential_results)
 eValueMat  <- sequential_results_list$eValueMat
 fValueMat  <- sequential_results_list$fValueMat
@@ -175,7 +175,7 @@ stoppedMetaFType2 <- sequential_results_list$stoppedMetaFType2
 #lines(worstCaseMetaFType1, col="red")
 
 # ANALYSIS OVER MANY PERMUTATIONS OF THE DATA ORDER
-avgMetaResultsList <- avg_meta_results(PECDF, alpha, betaFutility, deltaMin, esMinFutility, varEqual, n_permutations = 100, meta_alpha = alpha/n_studies, meta_betaFutility = betaFutility/n_studies)
+avgMetaResultsList <- avg_meta_results(PECDF, alpha, betaMinEffi, deltaMin, esMinFutility, varEqual, n_permutations = 100, meta_alpha = alpha/n_studies, meta_betaMinEffi = betaMinEffi/n_studies)
 metaType1StoppingTimes <- avgMetaResultsList$metaType1StoppingTimes
 metaType2StoppingTimes <- avgMetaResultsList$metaType2StoppingTimes
 metaType3StoppingTimes <- avgMetaResultsList$metaType3StoppingTimes

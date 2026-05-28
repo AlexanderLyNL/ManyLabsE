@@ -46,10 +46,10 @@ res1TwoSided$resultTable
 
 
 res1TwoSided$individualResultList$tversky$logMetaE
-res1TwoSided$individualResultList$tversky$logMetaEFut
+res1TwoSided$individualResultList$tversky$logMetaEMinEffi
 
 res1TwoSided$individualResultList$rottenstreich$logMetaE
-res1TwoSided$individualResultList$rottenstreich$logMetaEFut
+res1TwoSided$individualResultList$rottenstreich$logMetaEMinEffi
 
 res1DeltaMinFactor <- res1
 
@@ -80,7 +80,7 @@ head(dat)
 
 # Here -------
 alpha <- 0.05
-betaFutility <- alpha
+betaMinEffi <- alpha
 alternative <- switch(authorNeem,
                       Rottenstreich="less",
                       Tversky="greater",
@@ -98,7 +98,7 @@ esMin <- switch(authorNeem,
                 Tversky=log(4.96),
                 Hauser1=2.5*pi/sqrt(3),
                 Hauser2=0.34*pi/sqrt(3))
-futParam <- esMin
+minEffiParam <- esMin
 logOddsRatio <- esMin
 #
 # esMin <- log(4.96)*sqrt(3)/pi
@@ -107,7 +107,7 @@ logOddsRatio <- esMin
 
 
 
-designObj <- list(esMin=esMin, futilityResult=list(parameter=futParam),
+designObj <- list(esMin=esMin, minEffiTestResult=list(parameter=minEffiParam),
                   alternative=alternative,
                   testName="2x2")
 
@@ -117,27 +117,27 @@ aap <- metaScenario1(dat, allSources, designObj)
 
 
 metaE <- cumsum(log(aap$eValues))
-metaEFut <- cumsum(log(aap$eValuesFut))
+metaEMinEffi <- cumsum(log(aap$eValuesMinEffi))
 
 metaE >= log(1/alpha)
-metaEFut <= log(betaFutility)
+metaEMinEffi <= log(betaMinEffi)
 
-plot(log(aap$eValuesFut), type="l", col="darkgoldenrod")
+plot(log(aap$eValuesMinEffi), type="l", col="darkgoldenrod")
 lines(1:length(aap$eValues), log(aap$eValues), col="blue")
 
-round(aap$eValues-aap$eValuesFut, 2)
+round(aap$eValues-aap$eValuesMinEffi, 2)
 # which(round(aap$eValues-1, 6)==0)
-# which(round(aap$eValuesFut-1, 6)==0)
+# which(round(aap$eValuesMinEffi-1, 6)==0)
 
-yLim <- c(min(c(metaE, metaEFut)), max(c(metaE, metaEFut)))
+yLim <- c(min(c(metaE, metaEMinEffi)), max(c(metaE, metaEMinEffi)))
 
-plot(metaEFut, type="l", col="darkgoldenrod", ylim=yLim)
+plot(metaEMinEffi, type="l", col="darkgoldenrod", ylim=yLim)
 lines(1:length(aap$eValues), metaE, col="blue")
 abline(h=log(1/alpha))
-abline(h=log(betaFutility))
+abline(h=log(betaMinEffi))
 
-log(aap$eValuesFut)[which(aap$eValues >= 1/alpha)]
-log(aap$eValues)[which(aap$eValuesFut <= betaFutility)]
+log(aap$eValuesMinEffi)[which(aap$eValues >= 1/alpha)]
+log(aap$eValues)[which(aap$eValuesMinEffi <= betaMinEffi)]
 
 
 
@@ -180,10 +180,10 @@ s10 <- saviTwoPropConditionalStat(
   logOddsRatio = designObj$esMin,
   alternative = alternative)
 
-r1f <- saviFutilityTwoPropConditionalStat(
+r1f <- saviMinEffiTwoPropConditionalStat(
   ya = sum(dat$ya), na = sum(dat$na), nb = sum(dat$nb),
   n1 = sum(dat$ya)+sum(dat$yb),
-  logOddsRatio = designObj$futilityResult$parameter,
+  logOddsRatio = designObj[["minEffiTestResult"]][["parameter"]],
   alternative = alternative)
 
 s10$eValue
@@ -227,7 +227,7 @@ sum(dat$na)+sum(dat$nb)
 saviTwoPropConditionalStat(sum(dat$ya), sum(dat$na), sum(dat$nb), sum(dat$ya)+sum(dat$yb),
                            logOddsRatio=0.40)
 
-saviFutilityTwoPropConditionalStat(sum(dat$ya), sum(dat$na), sum(dat$nb), sum(dat$ya)+sum(dat$yb),
+saviMinEffiTwoPropConditionalStat(sum(dat$ya), sum(dat$na), sum(dat$nb), sum(dat$ya)+sum(dat$yb),
                            logOddsRatio=0.40)
 
 

@@ -478,14 +478,14 @@ atanh(0.25)
 
 
 alpha <- 0.05
-betaFutility <- 0.2
+betaMinEffi <- 0.2
 
 rOri <- 0.25
 deltaMin <- 2*rOri/sqrt(1-rOri^2)
 
 designObj <- designSaviZ(
   atanh(rOri), power=0.8,
-  futility=TRUE, alternative="twoSided",
+  minEffiTest=TRUE, alternative="twoSided",
   wantSampling=FALSE)
 
 allSources <- unique(dat$source)
@@ -521,7 +521,7 @@ for (i in seq_along(rVec)) {
 }
 
 which(eValueVec > 1/alpha)
-which(eValueFutVec < betaFutility)
+which(eValueFutVec < betaMinEffi)
 
 
 #
@@ -530,11 +530,11 @@ eFutMeta <- exp(cumsum(log(eValueFutVec)))
 
 
 which(eMeta >= 1/alpha)
-which(eFutMeta <= betaFutility)
+which(eFutMeta <= betaMinEffi)
 
 plot(eMeta, log="y", type="l")
 lines(eFutMeta, col="red")
-abline(h=betaFutility)
+abline(h=betaMinEffi)
 abline(h=1/alpha, col="blue")
 
 
@@ -574,7 +574,7 @@ for (g in unique(grahamData$cleanDataFilter$source)){
 }
 
 
-betaFutility <- 0.2
+betaMinEffi <- 0.2
 
 
 # Original study: Lower bound of effect size found in the original study

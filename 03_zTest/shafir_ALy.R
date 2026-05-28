@@ -475,14 +475,14 @@ binomDiff <- ((.64+.55)/2-0.5)
 deltaMin <- sqrt(4*binomDiff^2/(1-binomDiff^2))
 
 alpha <- 0.05
-betaFutility <- alpha
+betaMinEffi <- alpha
 varEqual <- NULL
 power <- 0.8
 alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
 wantCi <- FALSE
 
 alphaMeta <- alpha^4
-betaFutilityMeta <- alphaMeta
+betaMinEffiMeta <- alphaMeta
 
 designObj <- designSaviZ(
   meanDiffMin=deltaMin, beta=0.05,
@@ -497,22 +497,22 @@ allSources <- unique(dat$source)
 
 res1 <- metaScenario1(dat=dat, allSources=allSources,
                       designObj=designObj, alpha=alpha,
-                      betaFutility=betaFutility,
+                      betaMinEffi=betaMinEffi,
                       nSim=1e3, alternative=alternative)
 
 res1a <- scenario1Z_binomial(dat=dat, allSources=allSources,
                              designObj=designObj,alpha=alpha,
-                             betaFutility=alpha, nSim=1e3L,
+                             betaMinEffi=alpha, nSim=1e3L,
                                          alternative=alternative)
 
 mean(res1$eValues >= 1/alpha)
-mean(res1$eValuesFut <= betaFutility)
+mean(res1$eValuesMinEffi <= betaMinEffi)
 
 res1$nStudiesAlternativeWorstCase
-res1$nStudiesFutilityWorstCase
+res1$nStudiesMinEffiWorstCase
 
 res1$nSamplesAlternativeWorstCase
-res1$nSamplesFutilityWorstCase
+res1$nSamplesMinEffiWorstCase
 
 mean(res1$stopDecision==1)
 mean(res1$stopDecision==-1)
@@ -522,8 +522,8 @@ mean(res1$nStudies)
 mean(res1$logMetaE)
 sd(res1$logMetaE)
 
-mean(res1$logMetaEFut)
-sd(res1$logMetaEFut)
+mean(res1$logMetaEMinEffi)
+sd(res1$logMetaEMinEffi)
 
 mean(res1$totalStoppingTimes)
 sd(res1$totalStoppingTimes)
@@ -541,12 +541,12 @@ mean(logMetaEa)
 sd(logMetaE)
 sd(logMetaEa)
 
-logMetaEFut <- rowSums(log(res2$eValuesFut))
-logMetaEFuta <- rowSums(log(res2a$eValuesFut))
-mean(logMetaEFut)
-mean(logMetaEFuta)
-sd(logMetaEFut)
-sd(logMetaEFuta)
+logMetaEMinEffi <- rowSums(log(res2$eValuesMinEffi))
+logMetaEMinEffia <- rowSums(log(res2a$eValuesMinEffi))
+mean(logMetaEMinEffi)
+mean(logMetaEMinEffia)
+sd(logMetaEMinEffi)
+sd(logMetaEMinEffia)
 
 mean(res2$alternativeProportion)
 mean(res2a$alternativeProportion)
@@ -554,10 +554,10 @@ sd(res2$alternativeProportion)
 sd(res2a$alternativeProportion)
 
 
-mean(res2$futilityProportion)
-mean(res2a$futilityProportion)
-sd(res2$futilityProportion)
-sd(res2a$futilityProportion)
+mean(res2$minEffiProportion)
+mean(res2a$minEffiProportion)
+sd(res2$minEffiProportion)
+sd(res2a$minEffiProportion)
 
 
 mean(res2$totalStoppingTimes)
@@ -567,11 +567,11 @@ sd(res2a$totalStoppingTimes)
 
 # Scenario 3
 res3b <- metaScenario3(dat=dat, allSources=allSources, designObj=designObj,
-                      alphaMeta=alphaMeta, betaFutilityMeta=betaFutilityMeta,
+                      alphaMeta=alphaMeta, betaMinEffiMeta=betaMinEffiMeta,
                       nSim=50, wantCi=wantCi)
 
 res3a <- scenario3ZBinom(dat=dat, allSources=allSources, designObj=designObj,
-                        alpha=alphaMeta, betaFutility=betaFutilityMeta,
+                        alpha=alphaMeta, betaMinEffi=betaMinEffiMeta,
                         nuMin=nuMin, nSim = 50) #nSim=1e3L)
 
 mean(res3$logMetaE)
@@ -579,20 +579,20 @@ mean(res3a$logMetaE)
 sd(res3$logMetaE)
 sd(res3a$logMetaE)
 
-mean(res3$logMetaEFut)
-mean(res3a$logMetaEFut)
-sd(res3$logMetaEFut)
-sd(res3a$logMetaEFut)
+mean(res3$logMetaEMinEffi)
+mean(res3a$logMetaEMinEffi)
+sd(res3$logMetaEMinEffi)
+sd(res3a$logMetaEMinEffi)
 
 mean(res3$alternativeProportion)
 mean(res3a$alternativeProportion)
 sd(res3$alternativeProportion)
 sd(res3a$alternativeProportion)
 
-mean(res3$futilityProportion)
-mean(res3a$futilityProportion)
-sd(res3$futilityProportion)
-sd(res3a$futilityProportion)
+mean(res3$minEffiProportion)
+mean(res3a$minEffiProportion)
+sd(res3$minEffiProportion)
+sd(res3a$minEffiProportion)
 
 mean(res3$totalStoppingTimes)
 mean(res3a$totalStoppingTimes)
