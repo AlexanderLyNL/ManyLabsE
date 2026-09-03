@@ -60,7 +60,7 @@ cexFactor <- 1.3
 myCexAxis <- 2.25
 
 alpha <- 0.05
-betaMinEffi <- alpha
+alphaRelevance <- alpha
 
 # Gray data --------
 
@@ -79,7 +79,7 @@ freqDesign <- power.t.test(delta=deltaMin, power=0.8,
 designObj1 <- designSaviT(deltaMin=deltaMin,
                           power=0.8, seed=2,
                           testType="twoSample",
-                          varEqual=FALSE, minEffiTest=TRUE)
+                          varEqual=FALSE, relevanceTest=TRUE)
 
 plot(designObj1)
 
@@ -113,7 +113,7 @@ n1VecFreq <- n2VecFreq <- pValues <- numeric(length(allSources))
 #   sample sizes for e-value based inference
 #
 n1VecE <- n2VecE <- firstTimes <- eValues <- numeric(length(allSources))
-n1VecEMinEffi <- n2VecEMinEffi <- firstTimesFut <- eValuesMinEffi <- numeric(length(allSources))
+n1VecERelevance <- n2VecERelevance <- firstTimesFut <- eRelevance <- numeric(length(allSources))
 
 allEValueVecs <- matrix(nrow=designObj1$nPlan[1],
                         ncol=length(allSources))
@@ -166,7 +166,7 @@ for (i in seq_along(eValues)) {
 
   eValues[i] <- max(tempResult$eValueVec, na.rm=TRUE)
 
-  eValuesMinEffi[i] <- min(tempResult$eValuEMinEffiVec, na.rm=TRUE)
+  eRelevance[i] <- min(tempResult$eValuERelevanceVec, na.rm=TRUE)
 
   # Used to fill up an e-value sequence if there is too little data
   nLast <- length(tempResult$eValueVec)
@@ -174,14 +174,14 @@ for (i in seq_along(eValues)) {
 
   if (nRemaining > 0) {
     tempResult$eValueVec <- c(tempResult$eValueVec, rep(tempResult$eValueVec[nLast], nRemaining))
-    tempResult$eValuEMinEffiVec <- c(unlist(tempResult$eValuEMinEffiVec), rep(unlist(tempResult$eValuEMinEffiVec)[nLast], nRemaining))
+    tempResult$eValuERelevanceVec <- c(unlist(tempResult$eValuERelevanceVec), rep(unlist(tempResult$eValuERelevanceVec)[nLast], nRemaining))
   }
 
   allEValueVecs[, i] <- tempResult$eValueVec
-  allEValueVecsFut[, i] <- tempResult$eValuEMinEffiVec
+  allEValueVecsFut[, i] <- tempResult$eValuERelevanceVec
 
   firstTimes[i] <- min(which(tempResult$eValueVec >= 20))
-  firstTimesFut[i] <- min(which(tempResult$eValuEMinEffiVec <= betaMinEffi))
+  firstTimesFut[i] <- min(which(tempResult$eValuERelevanceVec <= alphaRelevance))
 }
 
 
@@ -200,35 +200,35 @@ firstTimesFut
 #
 
 eMeta <- exp(cumsum(log(allEValueVecs[47, ])))
-EMinEffiMeta <- exp(cumsum(log(allEValueVecsFut[47, ])))
+ERelevanceMeta <- exp(cumsum(log(allEValueVecsFut[47, ])))
 
 plot(eMeta, type="l", log="y")
-lines(EMinEffiMeta, col="red")
+lines(ERelevanceMeta, col="red")
 
 eMetaAverage <- cumsum(allEValueVecs[47, ])/(1:length(allSources))
-EMinEffiMetaAverage <- cumsum(allEValueVecsFut[47, ])/(1:length(allSources))
+ERelevanceMetaAverage <- cumsum(allEValueVecsFut[47, ])/(1:length(allSources))
 
 plot(eMetaAverage, type="l", log="y")
-lines(EMinEffiMetaAverage, col="red")
+lines(ERelevanceMetaAverage, col="red")
 
-which(EMinEffiMetaAverage<0.2)
+which(ERelevanceMetaAverage<0.2)
 
 # Scenario 2 ----
 eMeta <- exp(rowSums(log(allEValueVecs)))
-EMinEffiMeta <- exp(rowSums(log(allEValueVecsFut)))
+ERelevanceMeta <- exp(rowSums(log(allEValueVecsFut)))
 
 plot(eMeta, type="l", log="y")
-lines(EMinEffiMeta, col="red")
+lines(ERelevanceMeta, col="red")
 
-which(EMinEffiMeta < 0.2)
+which(ERelevanceMeta < 0.2)
 
 eMetaAverage <- rowMeans(allEValueVecs)
-EMinEffiMetaAverage <- rowMeans(allEValueVecsFut)
+ERelevanceMetaAverage <- rowMeans(allEValueVecsFut)
 
 plot(eMetaAverage, type="l", log="y")
-lines(EMinEffiMetaAverage, col="red")
+lines(ERelevanceMetaAverage, col="red")
 
-which(EMinEffiMetaAverage < 0.2)
+which(ERelevanceMetaAverage < 0.2)
 
 # Scenario 3 ---------
 xNa <- which(is.na(grayData$gray1.2))
@@ -247,9 +247,9 @@ names(sourceDataTracker) <- allSources
 for (neem in allSources)
   sourceDataTracker[[neem]] <- list(x=NULL, y=NULL)
 
-EMinEffiCollection <- eCollection <- as.data.frame(matrix(ncol=length(allSources), nrow=nTotal))
-names(EMinEffiCollection) <- names(eCollection) <- allSources
-EMinEffiCollection[1, ] <- eCollection[1, ] <- 1
+ERelevanceCollection <- eCollection <- as.data.frame(matrix(ncol=length(allSources), nrow=nTotal))
+names(ERelevanceCollection) <- names(eCollection) <- allSources
+ERelevanceCollection[1, ] <- eCollection[1, ] <- 1
 
 
 for (i in seq_along(someOrder)) {
@@ -281,38 +281,38 @@ for (i in seq_along(someOrder)) {
     if (someCheck) {
       tempRes <- saviTTest(x, y, designObj=designObj1, sequential=FALSE)
       eCollection[[someSource]][i] <- tempRes$eValue
-      EMinEffiCollection[[someSource]][i] <- tempRes$eValuEMinEffi
+      ERelevanceCollection[[someSource]][i] <- tempRes$eValuERelevance
     } else {
       eCollection[[someSource]][i] <- 1
-      EMinEffiCollection[[someSource]][i] <- 1
+      ERelevanceCollection[[someSource]][i] <- 1
     }
 
     for (source in allSources) {
       if (source!=someSource) {
         eCollection[[source]][i] <- eCollection[[source]][i-1]
-        EMinEffiCollection[[source]][i] <- EMinEffiCollection[[source]][i-1]
+        ERelevanceCollection[[source]][i] <- ERelevanceCollection[[source]][i-1]
       }
     }
   }
 }
 
 eMatrix <- as.matrix(eCollection)
-EMinEffiMatrix <- as.matrix(EMinEffiCollection)
+ERelevanceMatrix <- as.matrix(ERelevanceCollection)
 
 eMeta <- exp(rowSums(log(eMatrix)))
-EMinEffiMeta <- exp(rowSums(log(EMinEffiMatrix)))
+ERelevanceMeta <- exp(rowSums(log(ERelevanceMatrix)))
 
 plot(1:nTotal, eMeta, type="l", log="y")
-lines(1:nTotal, EMinEffiMeta, col="red")
+lines(1:nTotal, ERelevanceMeta, col="red")
 
-which(EMinEffiMeta < 0.2)
+which(ERelevanceMeta < 0.2)
 
 
 
 eMetaAverage <- rowMeans(eMatrix)
-EMinEffiMetaAverage <- rowMeans(EMinEffiMatrix)
+ERelevanceMetaAverage <- rowMeans(ERelevanceMatrix)
 
 plot(1:nTotal, eMetaAverage, type="l", log="y")
-lines(1:nTotal, EMinEffiMetaAverage, col="red")
+lines(1:nTotal, ERelevanceMetaAverage, col="red")
 
-which(EMinEffiMetaAverage < 0.2)
+which(ERelevanceMetaAverage < 0.2)

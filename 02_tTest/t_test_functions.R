@@ -94,7 +94,7 @@ metaType3Helper <- function(v, M) {
 }
 
 
-full_seq_t_test_analysis <- function(PECDF, alpha, betaMinEffi, deltaMin, esMinFutility, varEqual = FALSE){
+full_seq_t_test_analysis <- function(PECDF, alpha, alphaRelevance, deltaMin, esMinFutility, varEqual = FALSE){
   
   original_source_list <- unique(PECDF$source) # only for meta type 1
   source_list <- sort(unique(PECDF$source))
@@ -148,7 +148,7 @@ full_seq_t_test_analysis <- function(PECDF, alpha, betaMinEffi, deltaMin, esMinF
 
       res <- saviTTest(x[1:n1], y[1:n2], designObj = DO, sequential = FALSE, varEqual = varEqual, futility = TRUE, esMinFutility = esMinFutility)
       eValue <- unname(res$eValue)
-      fValue <- unname(res$eValuEMinEffi)
+      fValue <- unname(res$eValuERelevance)
       eValueMat[i,j] <- eValue
       fValueMat[i,j] <- fValue
       
@@ -157,7 +157,7 @@ full_seq_t_test_analysis <- function(PECDF, alpha, betaMinEffi, deltaMin, esMinF
         sequential_results$stopped_for_R[i] <- 1
         found_stopping_time <- TRUE
       }
-      if (!found_stopping_time && fValue <= betaMinEffi){
+      if (!found_stopping_time && fValue <= alphaRelevance){
         sequential_results$stopped_times[i] <- j
         sequential_results$stopped_for_F[i] <- 1
         found_stopping_time <- TRUE
@@ -231,13 +231,13 @@ full_seq_t_test_analysis <- function(PECDF, alpha, betaMinEffi, deltaMin, esMinF
 
 #########
 
-avg_meta_results <- function(PECDF, alpha, betaMinEffi, deltaMin, esMinFutility, varEqual = FALSE, n_permutations = 1, meta_alpha=NULL, meta_betaMinEffi=NULL){
+avg_meta_results <- function(PECDF, alpha, alphaRelevance, deltaMin, esMinFutility, varEqual = FALSE, n_permutations = 1, meta_alpha=NULL, meta_alphaRelevance=NULL){
   
   original_source_list <- unique(PECDF$source)
   n_substudies <- length(original_source_list)
   
   if(is.null(meta_alpha)){meta_alpha <- alpha/n_substudies}
-  if(is.null(meta_betaMinEffi)){meta_betaMinEffi <- betaMinEffi/n_substudies}
+  if(is.null(meta_alphaRelevance)){meta_alphaRelevance <- alphaRelevance/n_substudies}
   
   metaEType1Realizations <- vector("list", n_permutations)
   metaEType2Realizations <- vector("list", n_permutations)
@@ -259,11 +259,11 @@ avg_meta_results <- function(PECDF, alpha, betaMinEffi, deltaMin, esMinFutility,
     cat("Started iteration:",i,"\n")
     
     PECDF <- PECDF[sample(nrow(PECDF)),]
-    sequential_results_list <- full_seq_t_test_analysis(PECDF, alpha, betaMinEffi, deltaMin, esMinFutility, varEqual)
+    sequential_results_list <- full_seq_t_test_analysis(PECDF, alpha, alphaRelevance, deltaMin, esMinFutility, varEqual)
     
     metaEType1Realizations[[i]] <- sequential_results_list$metaEType1
     metaFType1Realizations[[i]] <- sequential_results_list$metaFType1
-    meta1FirstPassage <- which(sequential_results_list$metaEType1 >= log(1/meta_alpha) | sequential_results_list$metaFType1 <= log(meta_betaMinEffi))[1]
+    meta1FirstPassage <- which(sequential_results_list$metaEType1 >= log(1/meta_alpha) | sequential_results_list$metaFType1 <= log(meta_alphaRelevance))[1]
     if (is.na(meta1FirstPassage)){
       metaType1StoppingTimes[i] <- length(sequential_results_list$metaEType1)
       }
@@ -273,7 +273,7 @@ avg_meta_results <- function(PECDF, alpha, betaMinEffi, deltaMin, esMinFutility,
     
     metaEType2Realizations[[i]] <- sequential_results_list$metaEType2
     metaFType2Realizations[[i]] <- sequential_results_list$metaFType2
-    meta2FirstPassage <- which(sequential_results_list$metaEType2 >= log(1/meta_alpha) | sequential_results_list$metaFType2 <= log(meta_betaMinEffi))[1]
+    meta2FirstPassage <- which(sequential_results_list$metaEType2 >= log(1/meta_alpha) | sequential_results_list$metaFType2 <= log(meta_alphaRelevance))[1]
     if (is.na(meta2FirstPassage)){
       metaType2StoppingTimes[i] <- length(sequential_results_list$metaEType2)
     }
@@ -283,7 +283,7 @@ avg_meta_results <- function(PECDF, alpha, betaMinEffi, deltaMin, esMinFutility,
     
     metaEType3Realizations[[i]] <- sequential_results_list$metaEType3
     metaFType3Realizations[[i]] <- sequential_results_list$metaFType3
-    meta3FirstPassage <- which(sequential_results_list$metaEType3 >= log(1/meta_alpha) | sequential_results_list$metaFType3 <= log(meta_betaMinEffi))[1]
+    meta3FirstPassage <- which(sequential_results_list$metaEType3 >= log(1/meta_alpha) | sequential_results_list$metaFType3 <= log(meta_alphaRelevance))[1]
     if (is.na(meta3FirstPassage)){
       metaType3StoppingTimes[i] <- length(sequential_results_list$metaEType3)
     }
@@ -293,7 +293,7 @@ avg_meta_results <- function(PECDF, alpha, betaMinEffi, deltaMin, esMinFutility,
     
     stoppedMetaEType2Realizations[[i]] <- sequential_results_list$stoppedMetaEType2
     stoppedMetaFType2Realizations[[i]] <- sequential_results_list$stoppedMetaFType2
-    stoppedMeta2FirstPassage <- which(sequential_results_list$stoppedMetaEType2 >= log(1/meta_alpha) | sequential_results_list$stoppedMetaFType2 <= log(meta_betaMinEffi))[1]
+    stoppedMeta2FirstPassage <- which(sequential_results_list$stoppedMetaEType2 >= log(1/meta_alpha) | sequential_results_list$stoppedMetaFType2 <= log(meta_alphaRelevance))[1]
     if (is.na(stoppedMeta2FirstPassage)){
       stoppedMetaType2StoppingTimes[i] <- length(sequential_results_list$stoppedMetaEType2)
     }

@@ -169,16 +169,16 @@ checkOneSample <- function(x, nMin=1) {
 
 
 computeWorstCaseScenario1 <- function(
-    res, alphaMeta=0.05, alphaRelevanceMeta=alphaMeta,
+    res, alphaMeta=0.05, betaMinEffiMeta=alphaMeta,
     seed=NULL, nSim=1e3L, ...) {
 
   eValues <- sort(res$eValues)
-  eRelevance <- sort(res$eRelevance, decreasing=TRUE)
+  eValuesMinEffi <- sort(res$eValuesMinEffi, decreasing=TRUE)
 
-  nSources <- length(eRelevance)
+  nSources <- length(eValuesMinEffi)
 
   nStudiesAlternativeWorstCase <- min(which(cumsum(log(eValues)) >= log(1/alphaMeta)))
-  nStudiesRelevanceWorstCase <- min(which(cumsum(log(eRelevance)) <= log(alphaRelevanceMeta)))
+  nStudiesMinEffiWorstCase <- min(which(cumsum(log(eValuesMinEffi)) <= log(betaMinEffiMeta)))
 
   if (is.infinite(nStudiesAlternativeWorstCase)) {
     nSamplesAlternativeWorstCase <- sum(res$n1Vec)+sum(res$n2Vec)
@@ -189,43 +189,43 @@ computeWorstCaseScenario1 <- function(
     nSamplesAlternativeWorstCase <- sum(res$n1Vec[indexStudiesNeeded])+sum(res$n2Vec[indexStudiesNeeded])
   }
 
-  if (is.infinite(nStudiesRelevanceWorstCase)) {
-    nSamplesRelevanceWorstCase <- sum(res[["n1Vec"]])+sum(res[["n2Vec"]])
+  if (is.infinite(nStudiesMinEffiWorstCase)) {
+    nSamplesMinEffiWorstCase <- sum(res$n1Vec)+sum(res$n2Vec)
   } else {
-    someOrder <- order(res[["eRelevance"]])
-    indexStudiesNeeded <- someOrder[1:nStudiesRelevanceWorstCase]
+    someOrder <- order(res$eValuesMinEffi)
+    indexStudiesNeeded <- someOrder[1:nStudiesMinEffiWorstCase]
 
-    nSamplesRelevanceWorstCase <- sum(res$n1Vec[indexStudiesNeeded])+sum(res$n2Vec[indexStudiesNeeded])
+    nSamplesMinEffiWorstCase <- sum(res$n1Vec[indexStudiesNeeded])+sum(res$n2Vec[indexStudiesNeeded])
   }
 
   stopDecision <- nStudies <- totalStoppingTimes <- integer(nSim)
-  logMetaE <- logMetaERelevance <- integer(nSim)
+  logMetaE <- logMetaEMinEffi <- integer(nSim)
 
   set.seed(seed)
   for (i in 1:nSim) {
     someOrder <- sample(nSources, nSources)
 
     tempEValues <- eValues[someOrder]
-    tempERelevance <- eRelevance[someOrder]
+    tempEValuesMinEffi <- eValuesMinEffi[someOrder]
 
     logMetaETemp <- cumsum(log(tempEValues))
-    logMetaERelevanceTemp <- cumsum(log(tempERelevance))
+    logMetaEMinEffiTemp <- cumsum(log(tempEValuesMinEffi))
 
     tauForAlt <- min(which(logMetaETemp >= log(1/alphaMeta)))
-    tauForRelevance <- min(which(logMetaERelevanceTemp <= log(alphaRelevanceMeta)))
+    tauForMinEffi <- min(which(logMetaEMinEffiTemp <= log(betaMinEffiMeta)))
 
-    if (tauForRelevance < tauForAlt)
+    if (tauForMinEffi < tauForAlt)
       stopDecision[i] <- -1
 
-    if (tauForAlt < tauForRelevance)
+    if (tauForAlt < tauForMinEffi)
       stopDecision[i] <- 1
 
-    tauRace <- min(tauForAlt, tauForRelevance)
+    tauRace <- min(tauForAlt, tauForMinEffi)
 
     stopIndex <- nStudies[i] <- min(tauRace, nSources)
 
     logMetaE[i] <- logMetaETemp[stopIndex]
-    logMetaERelevance[i] <- logMetaERelevanceTemp[stopIndex]
+    logMetaEMinEffi[i] <- logMetaEMinEffiTemp[stopIndex]
 
     indexNeededStudies <- someOrder[1:stopIndex]
 
@@ -233,12 +233,12 @@ computeWorstCaseScenario1 <- function(
   }
 
   res <- list("nStudiesAlternativeWorstCase"=nStudiesAlternativeWorstCase,
-              "nStudiesRelevanceWorstCase"=nStudiesRelevanceWorstCase,
+              "nStudiesMinEffiWorstCase"=nStudiesMinEffiWorstCase,
               "nSamplesAlternativeWorstCase"=nSamplesAlternativeWorstCase,
-              "nSamplesRelevanceWorstCase"=nSamplesRelevanceWorstCase,
+              "nSamplesMinEffiWorstCase"=nSamplesMinEffiWorstCase,
               "stopDecision"=stopDecision,
               "logMetaE"=logMetaE,
-              "logMetaERelevance"=logMetaERelevance,
+              "logMetaEMinEffi"=logMetaEMinEffi,
               "nStudies"=nStudies,
               "totalStoppingTimes"=totalStoppingTimes)
 
@@ -250,11 +250,10 @@ computeWorstCaseScenario1 <- function(
 manyLabsMetaScenarios <- function(
     scenarioNumber=1, deltaMinFactor=1,
     alternative="greater", nSim=100,
-    alpha=0.05, power=0.8, alphaRelevance=alpha,
-    alphaMeta=alpha^4, alphaRelevanceMeta=alphaMeta,
+    alpha=0.05, power=0.8, betaMinEffi=alpha,
+    alphaMeta=alpha^4, betaMinEffiMeta=alphaMeta,
     wantCi=FALSE, seed=1234, nuMin=3,
-    designObjList=NULL, analysisType=c("2x2", "tTest", "zTest"),
-    wantPaths=0, ...)  {
+    designObjList=NULL, analysisType=c("2x2", "tTest", "zTest"), ...)  {
 
   analysisType <- match.arg(analysisType)
 
@@ -354,21 +353,21 @@ manyLabsMetaScenarios <- function(
     if (is.null(designObj)) {
       if (analysisType=="2x2") {
         designObj <- list(
-          "esMin"=deltaMin, "relevanceTestSim"=list("parameter"=deltaMin),
+          "esMin"=deltaMin, "minEffiTestResult"=list("parameter"=deltaMin),
           "alternative"=alternative,
           "testName"="2x2")
       } else if (analysisType=="tTest") {
         designObj <- designSaviT(
           alpha=alpha, power=power,
-          deltaMin=deltaMin, relevanceTest=TRUE,
-          alphaRelevance=alphaRelevance,
+          deltaMin=deltaMin, minEffiTest=TRUE,
+          betaMinEffi=betaMinEffi,
           varEqual=varEqual, testType=testType,
           alternative=alternative, seed=seed)
       } else if (analysisType=="zTest") {
         designObj <- designSaviZ(
           alpha=alpha, power=power,
-          meanDiffMin=deltaMin, relevanceTest=TRUE,
-          alphaRelevance=alphaRelevance,
+          meanDiffMin=deltaMin, minEffiTest=TRUE,
+          betaMinEffi=betaMinEffi,
           testType=testType,
           alternative=alternative, seed=seed)
 
@@ -389,15 +388,15 @@ manyLabsMetaScenarios <- function(
         dat=dat, allSources=allSources,
         designObj=designObj, seed=seed,
         nuMin=nuMin, alphaMeta=alphaMeta,
-        alphaRelevanceMeta=alphaRelevanceMeta, nSim=nSim)
+        betaMinEffiMeta=betaMinEffiMeta, nSim=nSim)
 
       # Table --
       resultTable[i, 7] <- sum(res[["n1Vec"]])+sum(res[["n2Vec"]])
 
       resultTable[i, 1] <- mean(res[["logMetaE"]])
-      resultTable[i, 2] <- mean(res[["logMetaERelevance"]])
+      resultTable[i, 2] <- mean(res[["logMetaEMinEffi"]])
       resultTable[i, 3] <- mean(res[["eValues"]] >= 1/alpha)*100
-      resultTable[i, 4] <- mean(res[["eRelevance"]] <= alphaRelevance)*100
+      resultTable[i, 4] <- mean(res[["eValuesMinEffi"]] <= betaMinEffi)*100
       resultTable[i, 5] <- mean(res[["totalStoppingTimes"]])
       resultTable[i, 6] <- (resultTable[i, 5]/resultTable[i, 7])*100
 
@@ -407,12 +406,12 @@ manyLabsMetaScenarios <- function(
       resultTableFull[i, 1] <- mean(res[["logMetaE"]])
       resultTableFull[i, 2] <- sd(res[["logMetaE"]])
 
-      resultTableFull[i, 3] <- mean(res[["logMetaERelevance"]])
-      resultTableFull[i, 4] <- sd(res[["logMetaERelevance"]])
+      resultTableFull[i, 3] <- mean(res[["logMetaEMinEffi"]])
+      resultTableFull[i, 4] <- sd(res[["logMetaEMinEffi"]])
 
       resultTableFull[i, 5] <- mean(res[["eValues"]] >= 1/alpha)*100
 
-      resultTableFull[i, 6] <- mean(res[["eRelevance"]] <= alphaRelevance)*100
+      resultTableFull[i, 6] <- mean(res[["eValuesMinEffi"]] <= betaMinEffi)*100
 
       resultTableFull[i, 7] <- mean(res[["totalStoppingTimes"]])
 
@@ -431,14 +430,14 @@ manyLabsMetaScenarios <- function(
 
       # Table --
       logMetaE <- rowSums(log(res[["eValues"]]))
-      logMetaERelevance <- rowSums(log(res[["eRelevance"]]))
+      logMetaEMinEffi <- rowSums(log(res[["eValuesMinEffi"]]))
 
       resultTable[i, 7] <- dim(dat)[1]
 
       resultTable[i, 1] <- mean(logMetaE)
-      resultTable[i, 2] <- mean(logMetaERelevance)
+      resultTable[i, 2] <- mean(logMetaEMinEffi)
       resultTable[i, 3] <- mean(res[["alternativeProportion"]])*100
-      resultTable[i, 4] <- mean(res[["relevanceProportion"]])*100
+      resultTable[i, 4] <- mean(res[["minEffiProportion"]])*100
       resultTable[i, 5] <- mean(res[["totalStoppingTimes"]])
       resultTable[i, 6] <- (resultTable[i, 5]/resultTable[i, 7])*100
 
@@ -447,12 +446,12 @@ manyLabsMetaScenarios <- function(
 
       resultTableFull[i, 1] <- mean(logMetaE)
       resultTableFull[i, 2] <- sd(logMetaE)
-      resultTableFull[i, 3] <- mean(logMetaERelevance)
-      resultTableFull[i, 4] <- sd(logMetaERelevance)
+      resultTableFull[i, 3] <- mean(logMetaEMinEffi)
+      resultTableFull[i, 4] <- sd(logMetaEMinEffi)
       resultTableFull[i, 5] <- mean(res[["alternativeProportion"]])*100
       resultTableFull[i, 6] <- sd(res[["alternativeProportion"]])*100
-      resultTableFull[i, 7] <- mean(res[["relevanceProportion"]])*100
-      resultTableFull[i, 8] <- sd(res[["relevanceProportion"]])*100
+      resultTableFull[i, 7] <- mean(res[["minEffiProportion"]])*100
+      resultTableFull[i, 8] <- sd(res[["minEffiProportion"]])*100
       resultTableFull[i, 9] <- mean(res[["totalStoppingTimes"]])
 
       resultTableFull[i, 10] <- (resultTableFull[i, 9]/resultTableFull[i, 11])*100
@@ -463,15 +462,15 @@ manyLabsMetaScenarios <- function(
       res <- metaScenario3(
         dat=dat, allSources=allSources,
         designObj=designObj, alphaMeta=alphaMeta,
-        alphaRelevanceMeta=alphaRelevanceMeta, nuMin=nuMin,
-        nSim=nSim, seed=seed, wantPaths=wantPaths)
+        betaMinEffiMeta=betaMinEffiMeta, nuMin=nuMin,
+        nSim=nSim, seed=seed)
 
       # Table
       #
       resultTable[i, 5] <- dim(dat)[1]
 
       resultTable[i, 1] <- mean(res[["logMetaE"]])
-      resultTable[i, 2] <- mean(res[["logMetaERelevance"]])
+      resultTable[i, 2] <- mean(res[["logMetaEMinEffi"]])
       resultTable[i, 3] <- mean(res[["totalStoppingTimes"]])
       resultTable[i, 4] <- (resultTable[i, 3]/resultTable[i, 5])*100
 
@@ -481,12 +480,12 @@ manyLabsMetaScenarios <- function(
 
       resultTableFull[i, 1] <- mean(res[["logMetaE"]])
       resultTableFull[i, 2] <- sd(res[["logMetaE"]])
-      resultTableFull[i, 3] <- mean(res[["logMetaERelevance"]])
-      resultTableFull[i, 4] <- sd(res[["logMetaERelevance"]])
+      resultTableFull[i, 3] <- mean(res[["logMetaEMinEffi"]])
+      resultTableFull[i, 4] <- sd(res[["logMetaEMinEffi"]])
       resultTableFull[i, 5] <- mean(res[["alternativeProportion"]])*100
       resultTableFull[i, 6] <- sd(res[["alternativeProportion"]])*100
-      resultTableFull[i, 7] <- mean(res[["relevanceProportion"]])*100
-      resultTableFull[i, 8] <- sd(res[["relevanceProportion"]])*100
+      resultTableFull[i, 7] <- mean(res[["minEffiProportion"]])*100
+      resultTableFull[i, 8] <- sd(res[["minEffiProportion"]])*100
       resultTableFull[i, 9] <- mean(res[["totalStoppingTimes"]])
 
       resultTableFull[i, 10] <- (resultTableFull[i, 9]/resultTableFull[i, 11])*100
@@ -504,11 +503,11 @@ manyLabsMetaScenarios <- function(
   rownames(resultTable) <- studyNames
 
   if (scenarioNumber %in% 1:2) {
-    colnames(resultTable) <- c("logMetaE", "logMetaERelevance",
+    colnames(resultTable) <- c("logMetaE", "logMetaEMinEffi",
                                "Reject H0", "Reject H1",
                                "nStop", "% of", "nTotal")
   } else if (scenarioNumber==3) {
-    colnames(resultTable) <- c("logMetaE", "logMetaERelevance",
+    colnames(resultTable) <- c("logMetaE", "logMetaEMinEffi",
                                "nStop", "% of", "nTotal")
   }
 
@@ -516,12 +515,12 @@ manyLabsMetaScenarios <- function(
   rownames(resultTableFull) <- studyNames
 
   if (scenarioNumber==1) {
-    colnames(resultTableFull) <- c("logMetaE", "sd(logMetaE)", "logMetaERelevance",
-                                   "sd(logMetaERelevance)", "Reject H0", "Reject H1",
+    colnames(resultTableFull) <- c("logMetaE", "sd(logMetaE)", "logMetaEMinEffi",
+                                   "sd(logMetaEMinEffi)", "Reject H0", "Reject H1",
                                    "nStop", "% of", "nTotal", "sd(nStop)", "sd %")
   } else if (scenarioNumber %in% 2:3) {
-    colnames(resultTableFull) <- c("logMetaE", "sd(logMetaE)", "logMetaERelevance",
-                                   "sd(logMetaERelevance)", "Reject H0", "sd(Reject H0)",
+    colnames(resultTableFull) <- c("logMetaE", "sd(logMetaE)", "logMetaEMinEffi",
+                                   "sd(logMetaEMinEffi)", "Reject H0", "sd(Reject H0)",
                                    "Reject H1", "sd(Reject H1)",
                                    "nStop", "% of", "nTotal",
                                    "sd(nStop)", "sd %")
@@ -535,7 +534,7 @@ manyLabsMetaScenarios <- function(
 
 metaScenario1 <- function(dat, allSources, designObj,
                           nuMin=3, wantCi=FALSE,
-                          alphaMeta=0.05, alphaRelevanceMeta=alphaMeta,
+                          alphaMeta=0.05, betaMinEffiMeta=alphaMeta,
                           seed=NULL, nSim=1e3L,
                           alternative=c("twoSided", "greater", "less")) {
 
@@ -543,7 +542,7 @@ metaScenario1 <- function(dat, allSources, designObj,
 
   nSources <- length(allSources)
 
-  eValues <- eRelevance <- pValues <- numeric(nSources)
+  eValues <- eValuesMinEffi <- pValues <- numeric(nSources)
   n1Vec <- n2Vec <- integer(nSources)
 
   factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
@@ -572,15 +571,15 @@ metaScenario1 <- function(dat, allSources, designObj,
     somePValue <- tempRes[["pValue"]]
     pValues[i] <- if (is.null(somePValue)) 1 else somePValue
     eValues[i] <- tempRes[["eValue"]]
-    eRelevance[i] <- tempRes[["eRelevance"]]
+    eValuesMinEffi[i] <- tempRes[["eValueMinEffi"]]
   }
 
-  tempRes <- list("eValues"=eValues, "eRelevance"=eRelevance,
+  tempRes <- list("eValues"=eValues, "eValuesMinEffi"=eValuesMinEffi,
                   "pValues"=pValues,
                   "n1Vec"=n1Vec, "n2Vec"=n2Vec)
 
   tempRes2 <- computeWorstCaseScenario1(
-    tempRes, "alphaMeta"=alphaMeta, "alphaRelevanceMeta"=alphaRelevanceMeta,
+    tempRes, "alphaMeta"=alphaMeta, "betaMinEffiMeta"=betaMinEffiMeta,
     "seed"=seed, "nSim"=nSim)
 
   res <- utils::modifyList(tempRes, tempRes2)
@@ -589,13 +588,13 @@ metaScenario1 <- function(dat, allSources, designObj,
 }
 
 metaScenario2 <- function(dat, allSources, designObj, alphaMeta=0.05,
-                          alphaRelevanceMeta=alphaMeta, nuMin=3, nSim=1e2L,
+                          betaMinEffiMeta=alphaMeta, nuMin=3, nSim=1e2L,
                           nMax=NULL, seed=NULL, wantCi=FALSE, nEffMin=2) {
 
   alternative <- designObj[["alternative"]]
   nSources <- length(allSources)
 
-  nSamples <- eValues <- eRelevance <- matrix(nrow=nSim, ncol=nSources)
+  nSamples <- eValues <- eValuesMinEffi <- matrix(nrow=nSim, ncol=nSources)
 
   if (designObj[["testType"]]=="twoSample") {
     factorLevels <- if (is.ordered(dat$factor)) levels(dat$factor) else unique(dat$factor)
@@ -631,112 +630,95 @@ metaScenario2 <- function(dat, allSources, designObj, alphaMeta=0.05,
 
     nSamples[, i] <- tempRes[["nSamples"]]
     eValues[, i] <- tempRes[["eValues"]]
-    eRelevance[, i] <- tempRes[["eRelevance"]]
+    eValuesMinEffi[, i] <- tempRes[["eValuesMinEffi"]]
   }
 
-  alternativeProportion <- relevanceProportion <- numeric(length=nSim)
+  alternativeProportion <- minEffiProportion <- numeric(length=nSim)
 
   for (i in 1:nSim) {
     alternativeProportion[i] <- mean(eValues[i, ] >= 1/designObj[["alpha"]])
-    relevanceProportion[i] <- mean(eRelevance[i, ] <= designObj[["relevanceTestSim"]][["alpha"]])
+    minEffiProportion[i] <- mean(eValuesMinEffi[i, ] <= designObj$minEffiTestResult$beta)
   }
 
   totalStoppingTimes <- rowSums(nSamples)
 
-  res <- list("nSamples"=nSamples, "eValues"=eValues, "eRelevance"=eRelevance,
+  res <- list("nSamples"=nSamples, "eValues"=eValues, "eValuesMinEffi"=eValuesMinEffi,
               "alternativeProportion"=alternativeProportion,
-              "relevanceProportion"=relevanceProportion,
+              "minEffiProportion"=minEffiProportion,
               "totalStoppingTimes"=totalStoppingTimes)
   return(res)
 }
 
 
 metaScenario3 <- function(dat, allSources, designObj, alphaMeta=0.05,
-                          alphaRelevanceMeta=alphaMeta, nuMin=3, nSim=1e3L,
+                          betaMinEffiMeta=alphaMeta, nuMin=3, nSim=1e3L,
                           nMax=NULL, seed=NULL, wantCi=FALSE,
-                          nPlanLimit=FALSE, nEffMin=2, wantPaths=0) {
+                          nPlanLimit=FALSE, nEffMin=2) {
 
   nTotal <- length(unique(dat[["uID"]]))
   nSources <- length(allSources)
 
-  logMetaE <- logMetaERelevance <- numeric(nSim)
+  logMetaE <- logMetaEMinEffi <- numeric(nSim)
 
-  alternativeProportion <- relevanceProportion <- totalStoppingTimes <-
+  alternativeProportion <- minEffiProportion <- totalStoppingTimes <-
     integer(nSim)
 
   nSamples <- nStopDecision <- matrix(nrow=nSim, ncol=nSources)
-  logEValues <- logERelevance <- matrix(nrow=nSim, ncol=nSources)
+  logEValues <- logEValuesMinEffi <- matrix(nrow=nSim, ncol=nSources)
 
   seedNext <- NULL
 
-  # paths init
-  wantPaths <- min(wantPaths, nSim)
-  paths <- NULL
-
-  if (wantPaths > 0)
-    paths <- vector(mode="list", length=wantPaths)
-
-  numPaths <- wantPaths
-
   for (i in 1:nSim) {
-
-    if (i > numPaths)
-      numPaths <- 0
 
     if (!is.null(seed)) seedNext <- seed+i
 
     if (designObj[["testName"]]=="T-Test") {
       tempRes <- computeScenario3TOneSim(
         dat=dat, allSources=allSources, designObj=designObj,
-        alphaMeta=alphaMeta, alphaRelevanceMeta=alphaRelevanceMeta,
+        alphaMeta=alphaMeta, betaMinEffiMeta=betaMinEffiMeta,
         nuMin=nuMin, nSim=nSim, seed=seedNext,
-        wantCi=wantCi, nPlanLimit=nPlanLimit, wantPaths=numPaths)
+        wantCi=wantCi, nPlanLimit=nPlanLimit)
     } else if (designObj[["testName"]]=="Binomial") {
       tempRes <- computeScenario3BinomialOneSim(
         dat=dat, allSources=allSources, designObj=designObj,
-        alphaMeta=alphaMeta, alphaRelevanceMeta=alphaRelevanceMeta,
+        alphaMeta=alphaMeta, betaMinEffiMeta=betaMinEffiMeta,
         nuMin=nuMin, nSim=nSim, wantCi=wantCi, nPlanLimit=nPlanLimit,
-        seed=seedNext, wantPaths=numPaths)
+        seed=seedNext)
     } else if (designObj[["testName"]]=="2x2") {
       stop("2x2 not yet done")
     } else if (designObj[["testName"]]=="Correlation") {
       tempRes <- computeScenario3CorOneSim(
         dat=dat, allSources=allSources, designObj=designObj,
-        alphaMeta=alphaMeta, alphaRelevanceMeta=alphaRelevanceMeta,
+        alphaMeta=alphaMeta, betaMinEffiMeta=betaMinEffiMeta,
         nuMin=nuMin, nSim=nSim,
         wantCi=wantCi, nPlanLimit=nPlanLimit, nEffMin=nEffMin,
         seed=seedNext)
     }
 
     logMetaE[i] <- tempRes[["logMetaE"]]
-    logMetaERelevance[i] <- tempRes[["logMetaERelevance"]]
+    logMetaEMinEffi[i] <- tempRes[["logMetaEMinEffi"]]
     logEValues[i, ] <- tempRes[["logEValues"]]
-    logERelevance[i, ] <- tempRes[["logERelevance"]]
+    logEValuesMinEffi[i, ] <- tempRes[["logEValuesMinEffi"]]
     nSamples[i, ] <- tempRes[["nSamples"]]
     nStopDecision[i, ] <- tempRes[["stopDecision"]]
 
     totalStoppingTimes[i] <- sum(tempRes[["nSamples"]])
     alternativeProportion[i] <- mean(tempRes[["stopDecision"]]==1)
-    relevanceProportion[i] <- mean(tempRes[["stopDecision"]]==-1)
-
-    if (numPaths > 0) {
-      paths[[i]] <- list("logSamplePaths"=tempRes[["logSamplePaths"]],
-                    "logSamplePathsRelevance"=tempRes[["logSamplePathsRelevance"]])
-    }
+    minEffiProportion[i] <- mean(tempRes[["stopDecision"]]==-1)
   }
 
-  res <- list("logMetaE"=logMetaE, "logMetaERelevance"=logMetaERelevance,
-              "logEValues"=logEValues, "logERelevance"=logERelevance,
+  res <- list("logMetaE"=logMetaE, "logMetaEMinEffi"=logMetaEMinEffi,
+              "logEValues"=logEValues, "logEValuesMinEffi"=logEValuesMinEffi,
               "nSamples"=nSamples, "nStopDecision"=nStopDecision,
               "totalStoppingTimes"=totalStoppingTimes,
               "alternativeProportion"=alternativeProportion,
-              "relevanceProportion"=relevanceProportion, "paths"=paths)
+              "minEffiProportion"=minEffiProportion)
   return(res)
 }
 
 # T-test ----
 computeEValuesT <- function(x, y, designObj, nuMin=3, h0=0) {
-  res <- list(eValue=NULL, eRelevance=NULL, n1=NULL, n2=NULL)
+  res <- list(eValue=NULL, eValueMinEffi=NULL, n1=NULL, n2=NULL)
 
   sumStats <- computeZTSumStats(
     "x"=x, "y"=y, "sequential"=FALSE,
@@ -775,16 +757,16 @@ computeEValuesT <- function(x, y, designObj, nuMin=3, h0=0) {
   res[["eValue"]] <- unname(testResult[["eValue"]])
 
 
-  if (designObj[["relevanceTest"]]) {
-    testResultRelevance <- suppressWarnings(
-      saviRelevanceTStatNEffNu("t"=tStat, "nEff"=nEff, "nu"=nu,
-                              "parameter"=designObj[["relevanceTestSim"]][["parameter"]],
+  if (designObj[["minEffiTest"]]) {
+    testResultMinEffi <- suppressWarnings(
+      saviMinEffiTStatNEffNu("t"=tStat, "nEff"=nEff, "nu"=nu,
+                              "parameter"=designObj[["minEffiTestResult"]][["parameter"]],
                               "alternative"=designObj[["alternative"]], "paired"=FALSE,
                               "nuMin"=nuMin)
     )
   }
 
-  res[["eRelevance"]] <- unname(testResultRelevance[["eValue"]])
+  res[["eValueMinEffi"]] <- unname(testResultMinEffi[["eValue"]])
 
   res[["n1"]] <- sumStats[["n1"]]
 
@@ -797,7 +779,7 @@ computeEValuesT <- function(x, y, designObj, nuMin=3, h0=0) {
 scenario1TTestHelp <- function(someDat, designObj, factorLevels=NULL,
                                wantCi=FALSE, nuMin=3) {
 
-  res <- list(eValue=NULL, eRelevance=NULL, n1=NULL, n2=NULL, pValue=NULL)
+  res <- list(eValue=NULL, eValueMinEffi=NULL, n1=NULL, n2=NULL, pValue=NULL)
 
   ## Data ---
   if (designObj[["testType"]]=="twoSample") {
@@ -840,7 +822,7 @@ scenario1TTestHelp <- function(someDat, designObj, factorLevels=NULL,
     "nuMin"=nuMin)
 
   res[["eValue"]] <- tempRes[["eValue"]]
-  res[["eRelevance"]] <- tempRes[["eRelevance"]]
+  res[["eValueMinEffi"]] <- tempRes[["eValueMinEffi"]]
 
   res[["n1"]] <- tempRes[["n1"]]
   res[["n2"]] <- tempRes[["n2"]]
@@ -853,10 +835,10 @@ scenario2TTestHelp <- function(
     wantCi=FALSE, nuMin=3, seed=NULL,
     nSim=1e3L, ...) {
 
-  res <- list(nSamples=NULL, eValue=NULL, eRelevance=NULL)
+  res <- list(nSamples=NULL, eValue=NULL, eValueMinEffi=NULL)
 
   nSamples <- integer(nSim)
-  eValues <- eRelevance <- numeric(nSim)
+  eValues <- eValuesMinEffi <- numeric(nSim)
 
   ## Data ---
   if (designObj[["testType"]]=="twoSample") {
@@ -895,12 +877,12 @@ scenario2TTestHelp <- function(
 
     nSamples[k] <- tempRes[["nSamples"]]
     eValues[k] <- tempRes[["eValue"]]
-    eRelevance[k] <- tempRes[["eRelevance"]]
+    eValuesMinEffi[k] <- tempRes[["eValueMinEffi"]]
   }
 
   res[["nSamples"]] <- nSamples
   res[["eValues"]] <- eValues
-  res[["eRelevance"]] <- eRelevance
+  res[["eValuesMinEffi"]] <- eValuesMinEffi
 
   return(res)
 }
@@ -911,7 +893,7 @@ tTestRandomOrder <- function(
     seed=NULL, ...) {
 
   alpha <- designObj[["alpha"]]
-  alphaRelevance <- designObj[["relevanceTestSim"]][["alpha"]]
+  betaMinEffi <- designObj[["minEffiTestResult"]][["beta"]]
 
   nParticipants <- n1+n2
 
@@ -955,11 +937,11 @@ tTestRandomOrder <- function(
         "designObj"=designObj, "nuMin"=nuMin)
 
       eNow <- tempRes[["eValue"]]
-      eRelevanceNow <- tempRes[["eRelevance"]]
+      eMinEffiNow <- tempRes[["eValueMinEffi"]]
 
-      if (eNow >= 1/alpha || eRelevanceNow <= alphaRelevance ||
+      if (eNow >= 1/alpha || eMinEffiNow <= betaMinEffi ||
           j==nMax) {
-        res <- list("nSamples"=j, "eValue"=eNow, "eRelevance"=eRelevanceNow)
+        res <- list("nSamples"=j, "eValue"=eNow, "eValueMinEffi"=eMinEffiNow)
         return(res)
       }
     }
@@ -969,12 +951,12 @@ tTestRandomOrder <- function(
 
 computeScenario3TOneSim <- function(
     dat, allSources, designObj, alphaMeta=0.05,
-    alphaRelevanceMeta=alphaMeta, nuMin=3, nSim=1e3L,
+    betaMinEffiMeta=alphaMeta, nuMin=3, nSim=1e3L,
     seed=NULL, wantCi=FALSE,
-    nPlanLimit=TRUE, wantPaths=0) {
+    nPlanLimit=TRUE) {
 
   alpha <- designObj[["alpha"]]
-  alphaRelevance <- designObj[["relevanceTestSim"]][["alpha"]]
+  betaMinEffi <- designObj[["minEffiTestResult"]][["beta"]]
 
   nSources <- length(allSources)
 
@@ -996,27 +978,16 @@ computeScenario3TOneSim <- function(
 
   logETracker <- numeric(length=nSources)
   names(logETracker) <- allSources
-  logERelevanceTracker <- logETracker
+  logEMinEffiTracker <- logETracker
 
   nTotal <- length(dat[["uID"]])
 
-  set.seed(seed)
+  # set.seed(seed)
   someOrder <- sample(unique(dat[["uID"]]), nTotal)
-
-
-  logSamplePaths <- logSamplePathsRelevance <- NULL
-
-  if (wantPaths > 0) {
-    logSamplePaths <- logSamplePathsRelevance <-
-      Matrix::Matrix(0, nrow=nSources, ncol=nTotal)
-
-    rownames(logSamplePaths) <- rownames(logSamplePathsRelevance) <-
-      allSources
-  }
 
   # meta eValues are all 1 at the start
   #
-  logMetaENow <- logMetaERelevanceNow <- 0
+  logMetaENow <- logMetaEMinEffiNow <- 0
 
   for (j in seq_along(someOrder)) {
     someId <- someOrder[j]
@@ -1033,32 +1004,20 @@ computeScenario3TOneSim <- function(
     x <- sourceDataTemp$x
     y <- sourceDataTemp$y
 
-    skipThis <- FALSE
-
     # Skip if sample size limit is reached within trial
     #
     if (designObj[["testType"]]=="twoSample" &&
         nPlanLimit && length(x) >= designObj$nPlan[1] &&
         length(y) >= designObj$nPlan[2])
-      skipThis <- TRUE
+      next()
 
     if (designObj[["testType"]]=="oneSample" &&
         nPlanLimit && length(x) >= designObj$nPlan[1])
-      skipThis <- TRUE
+      next()
 
     # Skip if already stopped within trial
     #
     if (stopDecision[[someSource]]!=0)
-      skipThis <- TRUE
-
-    if (wantPaths > 0 && j > 1) {
-      for (neem in allSources) {
-        logSamplePaths[neem, j] <- logSamplePaths[neem, j-1]
-        logSamplePathsRelevance[neem, j] <- logSamplePathsRelevance[neem, j-1]
-      }
-    }
-
-    if (skipThis)
       next()
 
     if (designObj[["testType"]]=="twoSample") {
@@ -1072,18 +1031,16 @@ computeScenario3TOneSim <- function(
     }
 
     # TODO(Alexander): Hier tTestRandom....
-    #
+
     if (designObj[["testType"]]=="twoSample") {
       someCheck <- checkTwoSample(x, y)
     } else {
       someCheck <- if (length(x) > 1) TRUE else FALSE
     }
 
-    breakLoop <- FALSE
-
     if (someCheck) {
       logEValueOld <- logETracker[[someSource]]
-      logERelevanceOld <- logERelevanceTracker[[someSource]]
+      logEValueMinEffiOld <- logEMinEffiTracker[[someSource]]
 
       tempRes <- computeEValuesT(
         "x"=x, "y"=y,
@@ -1094,56 +1051,32 @@ computeScenario3TOneSim <- function(
 
       logEValueNow <- logETracker[[someSource]] <-
         log(tempRes$eValue)
-      logERelevanceNow <- logERelevanceTracker[[someSource]] <-
-        log(tempRes$eRelevance)
+      logEValueMinEffiNow <- logEMinEffiTracker[[someSource]] <-
+        log(tempRes$eValueMinEffi)
 
       if (logEValueNow >= log(1/alpha))
         stopDecision[[someSource]] <- 1
 
-      if (logERelevanceNow <= log(alphaRelevance))
+      if (logEValueMinEffiNow <= log(betaMinEffi))
         stopDecision[[someSource]] <- -1
 
       logMetaEAdd <- logEValueNow - logEValueOld
-      logMetaERelevanceAdd <- logERelevanceNow - logERelevanceOld
+      logMetaEMinEffiAdd <- logEValueMinEffiNow - logEValueMinEffiOld
 
       logMetaENow <- logMetaENow+logMetaEAdd
-      logMetaERelevanceNow <- logMetaERelevanceNow+logMetaERelevanceAdd
+      logMetaEMinEffiNow <- logMetaEMinEffiNow+logMetaEMinEffiAdd
 
-      if (logMetaENow >= log(1/alphaMeta) || logMetaERelevanceNow <= log(alphaRelevanceMeta))
-        breakLoop <- TRUE
-
-    }
-
-    if (wantPaths > 0 && j > 1) {
-
-      if (someCheck) {
-        logSamplePaths[someSource, j] <- logEValueNow
-        logSamplePathsRelevance[someSource, j] <- logERelevanceNow
-      } else {
-        logSamplePaths[someSource, j] <- logSamplePaths[someSource, j-1]
-        logSamplePathsRelevance[someSource, j] <- logSamplePathsRelevance[someSource, j-1]
-      }
-
-
-      for (neem in allSources) {
-        if (neem!=someSource) {
-          logSamplePaths[neem, j] <- logSamplePaths[neem, j-1]
-          logSamplePathsRelevance[neem, j] <- logSamplePathsRelevance[neem, j-1]
-        }
+      if (logMetaENow >= log(1/alphaMeta) || logMetaEMinEffiNow <= log(betaMinEffiMeta)) {
+        break
       }
     }
-
-    if (breakLoop)
-      break()
   }
 
-  res <- list(logMetaE=logMetaENow, logMetaERelevance=logMetaERelevanceNow,
-              logERelevance=logERelevanceTracker,
+  res <- list(logMetaE=logMetaENow, logMetaEMinEffi=logMetaEMinEffiNow,
+              logEValuesMinEffi=logEMinEffiTracker,
               logEValues=logETracker,
               nSamples=nSamples,
-              stopDecision=stopDecision,
-              logSamplePaths=logSamplePaths,
-              logSamplePathsRelevance=logSamplePathsRelevance)
+              stopDecision=stopDecision)
   return(res)
 }
 
@@ -1151,14 +1084,14 @@ computeScenario3TOneSim <- function(
 
 # Tables --------
 scenario1Table <- function(dat, allSources, designObj,
-                           alpha=0.05, alphaRelevance=alpha,
+                           alpha=0.05, betaMinEffi=alpha,
                            seed=NULL, nSim=1e3L) {
 
   alternative <- designObj$alternative
 
   nSources <- length(allSources)
 
-  eValues <- eRelevance <- pValues <- numeric(nSources)
+  eValues <- eValuesMinEffi <- pValues <- numeric(nSources)
 
   for (i in 1:length(allSources)) {
     someDat <- dat[dat$sites==allSources[i], ]
@@ -1192,22 +1125,22 @@ scenario1Table <- function(dat, allSources, designObj,
 
     eValues[i] <- tempRes$eValue
 
-    tempRes <- saviRelevanceTwoPropConditionalStat(
+    tempRes <- saviMinEffiTwoPropConditionalStat(
       ya=ya, na=na, nb=nb, n1=n1,
-      logOddsRatio=designObj[["relevanceTestSim"]][["parameter"]],
+      logOddsRatio=designObj[["minEffiTestResult"]][["parameter"]],
       alternative=alternative)
 
-    eRelevance[i] <- tempRes$eValue
+    eValuesMinEffi[i] <- tempRes$eValue
   }
 
-  tempRes <- list("eValues"=eValues, "eRelevance"=eRelevance,
+  tempRes <- list("eValues"=eValues, "eValuesMinEffi"=eValuesMinEffi,
                   "pValues"=pValues)
 
   print("Broken off function")
   return(tempRes)
 
   tempRes2 <- computeWorstCaseScenario1(
-    tempRes, "alphaMeta"=alphaMeta, "alphaRelevance"=alphaRelevanceMeta,
+    tempRes, "alphaMeta"=alphaMeta, "betaMinEffi"=betaMinEffiMeta,
     "seed"=seed, "nSim"=nSim)
 
   res <- utils::modifyList(tempRes, tempRes2)
@@ -1216,7 +1149,7 @@ scenario1Table <- function(dat, allSources, designObj,
 }
 
 scenario12x2Help <- function(someDat, designObj) {
-  res <- list(eValue=NULL, eRelevance=NULL, n1=NULL, n2=0, pValue=NULL)
+  res <- list(eValue=NULL, eValueMinEffi=NULL, n1=NULL, n2=0, pValue=NULL)
 
   ## Data ---
   na <- someDat[["na"]]
@@ -1228,7 +1161,7 @@ scenario12x2Help <- function(someDat, designObj) {
   nTotal <- na+nb
 
   if (length(n1)==0 || nTotal==0)
-    return(list(eValue=1, eRelevance=1, n1=0, n2=0, pValue=1))
+    return(list(eValue=1, eValueMinEffi=1, n1=0, n2=0, pValue=1))
 
   alternative <- designObj[["alternative"]]
 
@@ -1263,12 +1196,12 @@ scenario12x2Help <- function(someDat, designObj) {
 
   res[["eValue"]] <- tempRes[["eValue"]]
 
-  tempRes <- saviRelevanceTwoPropConditionalStat(
+  tempRes <- saviMinEffiTwoPropConditionalStat(
     ya=ya, na=na, nb=nb, n1=n1,
-    logOddsRatio=designObj[["relevanceTestSim"]][["parameter"]],
+    logOddsRatio=designObj[["minEffiTestResult"]][["parameter"]],
     alternative=designObj[["alternative"]])
 
-  res[["eRelevance"]] <- tempRes[["eValue"]]
+  res[["eValueMinEffi"]] <- tempRes[["eValue"]]
 
   res[["n1"]] <- nTotal
 
@@ -1339,7 +1272,7 @@ saviTwoPropConditionalStat <- function(ya, na, nb, n1, logOddsRatio,
   }
 }
 
-saviRelevanceTwoPropConditionalStat <- function(
+saviMinEffiTwoPropConditionalStat <- function(
     ya, na, nb, n1, logOddsRatio,
     alternative=c("twoSided", "greater", "less")) {
 
@@ -1385,7 +1318,7 @@ gaussPrior <- function(z, sd=1, alternative) {
 # Binomial Z --------
 scenario1BinomialHelp <- function(someDat, designObj, factorLevels=NULL) {
 
-  res <- list(eValue=NULL, eRelevance=NULL, n1=NULL, n2=NULL, pValue=NULL)
+  res <- list(eValue=NULL, eValueMinEffi=NULL, n1=NULL, n2=NULL, pValue=NULL)
 
   ## Data ---
   if (designObj[["testType"]]=="twoSample") {
@@ -1421,13 +1354,13 @@ scenario1BinomialHelp <- function(someDat, designObj, factorLevels=NULL) {
                             sigma=designObj[["sigma"]],
                             eType=designObj[["eType"]])
 
-  tempResRelevance <- saviRelevanceZStat(z=zScore, n1=n1,
-                               parameter=designObj[["relevanceTestSim"]][["parameter"]],
+  tempResMinEffi <- saviMinEffiZStat(z=zScore, n1=n1,
+                               parameter=designObj[["minEffiTestResult"]][["parameter"]],
                                alternative=designObj[["alternative"]],
                                sigma=designObj[["sigma"]])
 
   res[["eValue"]] <- tempRes[["eValue"]]
-  res[["eRelevance"]] <- tempResRelevance[["eValue"]]
+  res[["eValueMinEffi"]] <- tempResMinEffi[["eValue"]]
 
   res[["n1"]] <- n1
   res[["n2"]] <- 0
@@ -1440,10 +1373,10 @@ scenario2BinomHelp <- function(
     someDat, designObj, factorLevels,
     seed=NULL, nSim=1e3L, ...) {
 
-  res <- list(nSamples=NULL, eValue=NULL, eRelevance=NULL)
+  res <- list(nSamples=NULL, eValue=NULL, eValueMinEffi=NULL)
 
   nSamples <- integer(nSim)
-  eValues <- eRelevance <- numeric(nSim)
+  eValues <- eValuesMinEffi <- numeric(nSim)
 
   ## Data ---
   if (designObj[["testType"]]=="twoSample") {
@@ -1473,17 +1406,17 @@ scenario2BinomHelp <- function(
     tempRes <- try(binomialTestRandomOrder(
       "x"=someDat, "n1"=n1,
       "designObj"=designObj,
-      "alpha"=alpha, "alphaRelevance"=alphaRelevance
+      "alpha"=alpha, "betaMinEffi"=betaMinEffi
     ))
 
     nSamples[k] <- tempRes[["nSamples"]]
     eValues[k] <- tempRes[["eValue"]]
-    eRelevance[k] <- tempRes[["eRelevance"]]
+    eValuesMinEffi[k] <- tempRes[["eValueMinEffi"]]
   }
 
   res[["nSamples"]] <- nSamples
   res[["eValues"]] <- eValues
-  res[["eRelevance"]] <- eRelevance
+  res[["eValuesMinEffi"]] <- eValuesMinEffi
 
   return(res)
 }
@@ -1491,12 +1424,12 @@ scenario2BinomHelp <- function(
 binomialTestRandomOrder <- function(
     x, n1, n2=0, designObj, # nuMin=3,
     alpha=0.05,
-    alphaRelevance=alpha, # wantCi=FALSE
+    betaMinEffi=alpha, # wantCi=FALSE
     seed=NULL, nMax=NULL) {
 
 
   alpha <- designObj[["alpha"]]
-  alphaRelevance <- designObj[["relevanceTestSim"]][["alpha"]]
+  betaMinEffi <- designObj[["minEffiTestResult"]][["beta"]]
 
   nParticipants <- n1+n2
 
@@ -1533,16 +1466,16 @@ binomialTestRandomOrder <- function(
                                 eType=designObj[["eType"]])
       eNow <- tempRes[["eValue"]]
 
-      tempRes <- saviRelevanceZStat(z=zScore, n1=length(count),
-                                   parameter=designObj[["relevanceTestSim"]][["parameter"]],
+      tempRes <- saviMinEffiZStat(z=zScore, n1=length(count),
+                                   parameter=designObj[["minEffiTestResult"]][["parameter"]],
                                    alternative=designObj[["alternative"]],
                                    sigma=designObj[["sigma"]])
-      eRelevanceNow <- tempRes[["eValue"]]
+      eMinEffiNow <- tempRes[["eValue"]]
 
-      if (eNow >= 1/alpha || eRelevanceNow <= alphaRelevance ||
+      if (eNow >= 1/alpha || eMinEffiNow <= betaMinEffi ||
           j==nMax) {
 
-        res <- list("nSamples"=j, "eValue"=eNow, "eRelevance"=eRelevanceNow)
+        res <- list("nSamples"=j, "eValue"=eNow, "eValueMinEffi"=eMinEffiNow)
         return(res)
       }
     }
@@ -1551,12 +1484,12 @@ binomialTestRandomOrder <- function(
 
 computeScenario3BinomialOneSim <- function(
     dat, allSources, designObj, alphaMeta=0.05,
-    alphaRelevanceMeta=alphaMeta, nuMin=3, nSim=1e3L,
+    betaMinEffiMeta=alphaMeta, nuMin=3, nSim=1e3L,
     seed=NULL, wantCi=FALSE,
     nPlanLimit=TRUE) {
 
   alpha <- designObj[["alpha"]]
-  alphaRelevance <- designObj[["relevanceTestSim"]][["alpha"]]
+  betaMinEffi <- designObj[["minEffiTestResult"]][["beta"]]
 
   nSources <- length(allSources)
 
@@ -1573,7 +1506,7 @@ computeScenario3BinomialOneSim <- function(
 
   logETracker <- numeric(length=nSources)
   names(logETracker) <- allSources
-  logERelevanceTracker <- logETracker
+  logEMinEffiTracker <- logETracker
 
   # Alexander: Perhaps remove na here
   # Remove non-available entries
@@ -1587,7 +1520,7 @@ computeScenario3BinomialOneSim <- function(
 
   # meta eValues are all 1 at the start
   #
-  logMetaENow <- logMetaERelevanceNow <- 0
+  logMetaENow <- logMetaEMinEffiNow <- 0
 
   for (j in seq_along(someOrder)) {
     someId <- someOrder[j]
@@ -1631,7 +1564,7 @@ computeScenario3BinomialOneSim <- function(
 
     if (someCheck) {
       logEValueOld <- logETracker[[someSource]]
-      logERelevanceOld <- logERelevanceTracker[[someSource]]
+      logEValueMinEffiOld <- logEMinEffiTracker[[someSource]]
 
       count <- as.integer(x[["variable1"]]=="Parent B")
 
@@ -1654,40 +1587,40 @@ computeScenario3BinomialOneSim <- function(
                                   sigma=designObj[["sigma"]],
                                   eType=designObj[["eType"]])
 
-        tempResRelevance <- saviRelevanceZStat(z=zScore, n1=length(count),
-                                     parameter=designObj[["relevanceTestSim"]][["parameter"]],
+        tempResMinEffi <- saviMinEffiZStat(z=zScore, n1=length(count),
+                                     parameter=designObj[["minEffiTestResult"]][["parameter"]],
                                      alternative=designObj[["alternative"]],
                                      sigma=designObj[["sigma"]])
       } else {
-        tempRes <- tempResRelevance <- list(eValue=1)
+        tempRes <- tempResMinEffi <- list(eValue=1)
       }
 
 
       logEValueNow <- logETracker[[someSource]] <-
         log(tempRes[["eValue"]])
-      logERelevanceNow <- logERelevanceTracker[[someSource]] <-
-        log(tempResRelevance[["eValue"]])
+      logEValueMinEffiNow <- logEMinEffiTracker[[someSource]] <-
+        log(tempResMinEffi[["eValue"]])
 
       if (logEValueNow >= log(1/alpha))
         stopDecision[[someSource]] <- 1
 
-      if (logERelevanceNow <= log(alphaRelevance))
+      if (logEValueMinEffiNow <= log(betaMinEffi))
         stopDecision[[someSource]] <- -1
 
       logMetaEAdd <- logEValueNow - logEValueOld
-      logMetaERelevanceAdd <- logERelevanceNow - logERelevanceOld
+      logMetaEMinEffiAdd <- logEValueMinEffiNow - logEValueMinEffiOld
 
       logMetaENow <- logMetaENow+logMetaEAdd
-      logMetaERelevanceNow <- logMetaERelevanceNow+logMetaERelevanceAdd
+      logMetaEMinEffiNow <- logMetaEMinEffiNow+logMetaEMinEffiAdd
 
-      if (logMetaENow >= log(1/alphaMeta) || logMetaERelevanceNow <= log(alphaRelevanceMeta)) {
+      if (logMetaENow >= log(1/alphaMeta) || logMetaEMinEffiNow <= log(betaMinEffiMeta)) {
         break
       }
     }
   }
 
-  res <- list(logMetaE=logMetaENow, logMetaERelevance=logMetaERelevanceNow,
-              logERelevance=logERelevanceTracker,
+  res <- list(logMetaE=logMetaENow, logMetaEMinEffi=logMetaEMinEffiNow,
+              logEValuesMinEffi=logEMinEffiTracker,
               logEValues=logETracker,
               nSamples=nSamples,
               stopDecision=stopDecision)
@@ -1699,7 +1632,7 @@ computeScenario3BinomialOneSim <- function(
 # Cor-to-Z --------
 scenario1CorHelp <- function(someDat, designObj, factorLevels=NULL) {
 
-  res <- list(eValue=NULL, eRelevance=NULL, n1=NULL, n2=NULL, pValue=NULL)
+  res <- list(eValue=NULL, eValueMinEffi=NULL, n1=NULL, n2=NULL, pValue=NULL)
 
   ## Data ---
   if (designObj[["testType"]]=="twoSample") {
@@ -1738,11 +1671,11 @@ scenario1CorHelp <- function(someDat, designObj, factorLevels=NULL) {
 
   res[["eValue"]] <- tempRes[["eValue"]]
 
-  tempRes <- saviRelevanceZStat(z=zScore, n1=n1, n2=n2,
-                               parameter=designObj[["relevanceTestSim"]][["parameter"]],
+  tempRes <- saviMinEffiZStat(z=zScore, n1=n1, n2=n2,
+                               parameter=designObj[["minEffiTestResult"]][["parameter"]],
                                alternative=designObj[["alternative"]])
 
-  res[["eRelevance"]] <- tempRes[["eValue"]]
+  res[["eValueMinEffi"]] <- tempRes[["eValue"]]
   res[["n1"]] <- n1
   res[["n2"]] <- if (!is.null(n2)) n2 else 0
 
@@ -1753,10 +1686,10 @@ scenario1CorHelp <- function(someDat, designObj, factorLevels=NULL) {
 scenario2CorHelp <- function(someDat, designObj, factorLevels,
                              nSim=1e3L, seed=NULL, nEffMin=2) {
 
-  res <- list(nSamples=NULL, eValue=NULL, eRelevance=NULL)
+  res <- list(nSamples=NULL, eValue=NULL, eValueMinEffi=NULL)
 
   nSamples <- integer(nSim)
-  eValues <- eRelevance <- numeric(nSim)
+  eValues <- eValuesMinEffi <- numeric(nSim)
 
   ## Data ---
   if (designObj[["testType"]]=="twoSample") {
@@ -1790,12 +1723,12 @@ scenario2CorHelp <- function(someDat, designObj, factorLevels,
 
     nSamples[k] <- tempRes[["nSamples"]]
     eValues[k] <- tempRes[["eValue"]]
-    eRelevance[k] <- tempRes[["eRelevance"]]
+    eValuesMinEffi[k] <- tempRes[["eValueMinEffi"]]
   }
 
   res[["nSamples"]] <- nSamples
   res[["eValues"]] <- eValues
-  res[["eRelevance"]] <- eRelevance
+  res[["eValuesMinEffi"]] <- eValuesMinEffi
 
   return(res)
 }
@@ -1805,10 +1738,10 @@ corTestRandomOrder <- function(
     seed=NULL, nMax=NULL,
     nEffMin=2) {
 
-  res <- list(nSamples=NULL, eValue=NULL, eRelevance=NULL)
+  res <- list(nSamples=NULL, eValue=NULL, eValueMinEffi=NULL)
 
   alpha <- designObj[["alpha"]]
-  alphaRelevance <- designObj[["relevanceTestSim"]][["alpha"]]
+  betaMinEffi <- designObj[["minEffiTestResult"]][["beta"]]
 
   nParticipants <- n1+n2
 
@@ -1878,7 +1811,7 @@ corTestRandomOrder <- function(
 
       if (is.na(zScore) && nEffNow < nEffMin) {
         eNow <- 1
-        eRelevanceNow <- 1
+        eMinEffiNow <- 1
       } else {
         tempRes <- saviZTestStat(z=zScore, n1=n1Now, n2=n2Now,
                                  parameter=designObj[["parameter"]],
@@ -1887,16 +1820,16 @@ corTestRandomOrder <- function(
 
         eNow <- tempRes[["eValue"]]
 
-        tempRes <- try(saviRelevanceZStat(z=zScore, n1=n1Now, n2=n2Now,
-                                     parameter=designObj[["relevanceTestSim"]][["parameter"]],
+        tempRes <- try(saviMinEffiZStat(z=zScore, n1=n1Now, n2=n2Now,
+                                     parameter=designObj[["minEffiTestResult"]][["parameter"]],
                                      alternative=designObj[["alternative"]]))
 
-        eRelevanceNow <- tempRes[["eValue"]]
+        eMinEffiNow <- tempRes[["eValue"]]
       }
 
-      if (eNow >= 1/alpha || eRelevanceNow <= alphaRelevance ||
+      if (eNow >= 1/alpha || eMinEffiNow <= betaMinEffi ||
           j==nMax) {
-        res <- list("nSamples"=j, "eValue"=eNow, "eRelevance"=eRelevanceNow)
+        res <- list("nSamples"=j, "eValue"=eNow, "eValueMinEffi"=eMinEffiNow)
         return(res)
       }
     }
@@ -1906,12 +1839,12 @@ corTestRandomOrder <- function(
 
 computeScenario3CorOneSim <- function(
     dat, allSources, designObj, alphaMeta=0.05,
-    alphaRelevanceMeta=alphaMeta, nuMin=3, nSim=1e3L,
+    betaMinEffiMeta=alphaMeta, nuMin=3, nSim=1e3L,
     seed=NULL, wantCi=FALSE, nEffMin=2,
     nPlanLimit=TRUE) {
 
   alpha <- designObj[["alpha"]]
-  alphaRelevance <- designObj[["relevanceTestSim"]][["alpha"]]
+  betaMinEffi <- designObj[["minEffiTestResult"]][["beta"]]
 
   nSources <- length(allSources)
 
@@ -1933,7 +1866,7 @@ computeScenario3CorOneSim <- function(
 
   logETracker <- numeric(length=nSources)
   names(logETracker) <- allSources
-  logERelevanceTracker <- logETracker
+  logEMinEffiTracker <- logETracker
 
   nTotal <- length(dat[["uID"]])
 
@@ -1942,7 +1875,7 @@ computeScenario3CorOneSim <- function(
 
   # meta eValues are all 1 at the start
   #
-  logMetaENow <- logMetaERelevanceNow <- 0
+  logMetaENow <- logMetaEMinEffiNow <- 0
 
   for (j in seq_along(someOrder)) {
     someId <- someOrder[j]
@@ -2001,7 +1934,7 @@ computeScenario3CorOneSim <- function(
 
     if (someCheck) {
       logEValueOld <- logETracker[[someSource]]
-      logERelevanceOld <- logERelevanceTracker[[someSource]]
+      logEValueMinEffiOld <- logEMinEffiTracker[[someSource]]
 
       tempCor <- computeCor(x1=dat1X, y1=dat1Y, x2=dat2X, y2=dat2Y)
 
@@ -2024,44 +1957,44 @@ computeScenario3CorOneSim <- function(
 
       if (nEffNow < nEffMin) {
         tempRes <- list(eValue=1)
-        tempResRelevance <- list(eValue=1)
+        tempResMinEffi <- list(eValue=1)
       } else {
         tempRes <- saviZTestStat("z"=zScore, "n1"=n1Now, "n2"=n2Now,
                                  "parameter"=designObj[["parameter"]],
                                  "eType"=designObj[["eType"]],
                                  "alternative"=designObj[["alternative"]])
 
-        tempResRelevance <- try(saviRelevanceZStat("z"=zScore, "n1"=n1Now, "n2"=n2Now,
-                                         "parameter"=designObj[["relevanceTestSim"]][["parameter"]],
+        tempResMinEffi <- try(saviMinEffiZStat("z"=zScore, "n1"=n1Now, "n2"=n2Now,
+                                         "parameter"=designObj[["minEffiTestResult"]][["parameter"]],
                                          "alternative"=designObj[["alternative"]]))
       }
 
       logEValueNow <- logETracker[[someSource]] <-
         log(tempRes[["eValue"]])
 
-      logERelevanceNow <- logERelevanceTracker[[someSource]] <-
-        log(tempResRelevance[["eValue"]])
+      logEValueMinEffiNow <- logEMinEffiTracker[[someSource]] <-
+        log(tempResMinEffi[["eValue"]])
 
       if (logEValueNow >= log(1/alpha))
         stopDecision[[someSource]] <- 1
 
-      if (logERelevanceNow <= log(alphaRelevance))
+      if (logEValueMinEffiNow <= log(betaMinEffi))
         stopDecision[[someSource]] <- -1
 
       logMetaEAdd <- logEValueNow - logEValueOld
-      logMetaERelevanceAdd <- logERelevanceNow - logERelevanceOld
+      logMetaEMinEffiAdd <- logEValueMinEffiNow - logEValueMinEffiOld
 
       logMetaENow <- logMetaENow+logMetaEAdd
-      logMetaERelevanceNow <- logMetaERelevanceNow+logMetaERelevanceAdd
+      logMetaEMinEffiNow <- logMetaEMinEffiNow+logMetaEMinEffiAdd
 
-      if (logMetaENow >= log(1/alphaMeta) || logMetaERelevanceNow <= log(alphaRelevanceMeta)) {
+      if (logMetaENow >= log(1/alphaMeta) || logMetaEMinEffiNow <= log(betaMinEffiMeta)) {
         break()
       }
     }
   }
 
-  res <- list(logMetaE=logMetaENow, logMetaERelevance=logMetaERelevanceNow,
-              logERelevance=logERelevanceTracker,
+  res <- list(logMetaE=logMetaENow, logMetaEMinEffi=logMetaEMinEffiNow,
+              logEValuesMinEffi=logEMinEffiTracker,
               logEValues=logETracker,
               nSamples=nSamples,
               stopDecision=stopDecision)

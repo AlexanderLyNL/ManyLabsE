@@ -15,11 +15,37 @@ source(file.path(project.root, "00_utils", "helpers.R"))
 
 # Run all t-test
 
-# res1 <- manyLabsMetaScenarios(1, analysisType="tTest", nSim=1e3L)
+res1 <- manyLabsMetaScenarios(1, analysisType="tTest", nSim=1e3L)
 # res3 <- manyLabsMetaScenarios(3, analysisType="tTest", designObjList=res1$designObjList, nSim=1e3L)
 # res2 <- manyLabsMetaScenarios(2, analysisType="tTest", designObjList=res1$designObjList, nSim=1e3L)
 
-# dir("~/dropbox/projects/manylabse/results")
+# res3 <- manyLabsMetaScenarios(3, analysisType="tTest", designObjList=res1$designObjList, nSim=1e3L)
+
+# res3 <- manyLabsMetaScenarios(3, analysisType="tTest",
+#                               designObjList=res1$designObjList,
+#                               nSim=1e3L, wantPaths=25)
+
+
+res3a <- manyLabsMetaScenarios(3,
+                               analysisType="tTest",
+                               designObjList=res1$designObjList, nSim=10)
+# res3PathsOld <- res3Paths
+# res3Paths <- res3
+
+
+
+res3Paths$individualResultList$knobe$paths[[1]]$logSamplePaths
+
+object.size(res3)
+
+# k <- 14
+# max(which(res3$individualResultList$knobe$paths[[1]]$logSamplePaths[k, ]!=0))
+
+# load(file="~/dropbox/projects/manyLabsE/results/tTestAll.RData")
+
+
+
+# load(file="tTestAll.RData")
 
 load(file="~/dropbox/projects/manylabse/results/tTestAll.RData")
 
@@ -71,6 +97,59 @@ manyLabsMetaScenarios
 #      file="tTestAll.RData")
 
 
+# save(res3Paths, file="tTestRes3Paths.RData")
+
+myHeightEPS <- 6.5
+myWidthEPS <- 10
+
+ltyGauss <- 4
+someLty <- 6
+
+myHeightEPS <- 6.5
+myWidthEPS <- 10
+
+pdfWidth <- 14
+pdfHeight <- 7
+
+myWidth <- 1070
+myHeight <- 485
+
+myCex <- 2
+myLwd <- 7
+myCexLab <- 1.5
+
+underColour <- "#FFB90F86"
+underColourBorder <- "#FFB90FCC"
+overColourBorder <- "#1F78B4E6"
+overColour <- "#A6CEE380"
+
+bord <- col <- res3$resultTable$logMetaE
+
+col[res3$resultTable$logMetaE > 0] <- overColour
+bord[res3$resultTable$logMetaE > 0] <- overColourBorder
+
+col[res3$resultTable$logMetaE < 0] <- underColour
+bord[res3$resultTable$logMetaE < 0] <- underColourBorder
 
 
-quantile(rowSums(res3$individualResultList$risen$nSamples), c(0.025, 0.975))/6905
+myName <- paste0("aap")
+pdf(paste0(myName, ".pdf"), width=pdfWidth, height=pdfHeight)
+graphics::par(cex.main=1.5, mar=c(5, 7, 4, 4)+0.1, mgp=c(3.5, 1, 0), cex.lab=1.5,
+              font.lab=2, cex.axis=1.3, bty="n", las=1)
+barplot(height=res3$resultTable$`% of`,
+        names=rownames(res3$resultTable),
+        las=1, horiz=TRUE, xlim=c(0, 50), col=col,
+        border=bord, xlab="% of realised sample sizes")
+dev.off()
+
+bord
+
+# barplot(height=res3$resultTable$`% of`,
+#         names=rownames(res3$resultTable),
+#         las=1, horiz=FALSE, ylim=c(0, 50))
+
+
+res3$resultTable
+
+res3$individualResultList$kay$logEValues[1, ]
+res3$individualResultList$kay$logEValuesFut[1, ]

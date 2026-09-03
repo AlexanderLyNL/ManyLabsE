@@ -14,6 +14,7 @@ project.root <- file.path("~", sourcePath, "manyLabsE")
 OSFdata.root <- file.path(project.root, "OSFdata")
 
 source(file.path(project.root, "00_utils", "WYQ_manylabRs_SOURCE.R"))
+source(file.path(project.root, "00_utils", "helpers.R"))
 
 # ANALYSIS INFO ----
 study.description      <- 'Direction & SES (Huang et al., 2014)'
@@ -139,34 +140,36 @@ if (stat.params$alternative=="two.sided")
 
 # Here -------
 alpha <- 0.05
-betaMinEffi <- alpha
+alphaRelevance <- alpha
 deltaMin <- 0.68
 varEqual <- stat.params$var.equal
-power <- 0.8
 alternative <- if (stat.params$alternative=="two.sided") "twoSided" else stat.params$alternative
 wantCi <- FALSE
 
+power <- 0.8
+nuMin <- 3
+
 set.seed(1234)
 designObj <- designSaviT(alpha=alpha, power=power,
-                         deltaMin=deltaMin, minEffiTest=TRUE,
-                         betaMinEffi=betaMinEffi,
+                         deltaMin=deltaMin, relevanceTest=TRUE,
+                         alphaRelevance=alphaRelevance,
                          varEqual=varEqual, testType="twoSample",
                          alternative=alternative)
 
 # Scenario 1 ----
 res1 <- metaScenario1(dat=dat, allSources=allSources, designObj=designObj,
                       nuMin=3, alphaMeta=alphaMeta,
-                      betaMinEffiMeta=betaMinEffiMeta,
+                      alphaRelevanceMeta=alphaRelevanceMeta,
                       nSim=1e3)
 
 mean(res1$eValues >= 1/alpha)
-mean(res1$eValuesMinEffi <= betaMinEffi)
+mean(res1$eRelevance <= alphaRelevance)
 
 res1$nStudiesAlternativeWorstCase
-res1$nStudiesMinEffiWorstCase
+res1$nStudiesRelevanceWorstCase
 
 res1$nSamplesAlternativeWorstCase
-res1$nSamplesMinEffiWorstCase
+res1$nSamplesRelevanceWorstCase
 
 mean(res1$stopDecision==1)
 mean(res1$stopDecision==-1)
@@ -176,8 +179,8 @@ mean(res1$nStudies)
 mean(res1$logMetaE)
 sd(res1$logMetaE)
 
-mean(res1$logMetaEMinEffi)
-sd(res1$logMetaEMinEffi)
+mean(res1$logMetaERelevance)
+sd(res1$logMetaERelevance)
 
 mean(res1$totalStoppingTimes)
 sd(res1$totalStoppingTimes)
@@ -190,15 +193,15 @@ logMetaE<- rowSums(log(res2$eValues))
 mean(logMetaE)
 sd(logMetaE)
 
-logMetaEMinEffi <- rowSums(log(res2$eValuesMinEffi))
-mean(logMetaEMinEffi)
-sd(logMetaEMinEffi)
+logMetaERelevance <- rowSums(log(res2$eRelevance))
+mean(logMetaERelevance)
+sd(logMetaERelevance)
 
 mean(res2$alternativeProportion)
 sd(res2$alternativeProportion)
 
-mean(res2$minEffiProportion)
-sd(res2$minEffiProportion)
+mean(res2$relevanceProportion)
+sd(res2$relevanceProportion)
 
 
 mean(res2$totalStoppingTimes)
@@ -206,23 +209,45 @@ sd(res2$totalStoppingTimes)
 
 #Scenario 3 ------
 
+# res3 <- metaScenario3(dat=dat, allSources=allSources, designObj=designObj,
+#                       alphaMeta=alphaMeta, alphaRelevanceMeta=alphaRelevanceMeta,
+#                       nuMin=nuMin, nSim=1e3L)
+
 res3 <- metaScenario3(dat=dat, allSources=allSources, designObj=designObj,
-                      alphaMeta=alphaMeta, betaMinEffiMeta=betaMinEffiMeta,
-                      nuMin=nuMin, nSim=1e3L)
+                      alphaMeta=alphaMeta, alphaRelevanceMeta=alphaRelevanceMeta,
+                      nuMin=nuMin, nSim=2, wantPaths=2)
+
+# res3Old <- res3
+
+simNum <- 1
+
+sum(res3$nSamples[simNum, ])
+res3$logMetaE[simNum]
+res3$logMetaERelevance[simNum]
+
+sum(res3$paths[[simNum]]$logSamplePathsRelevance[, 603])
+
+simNum <- 1
+
+sum(res3Old$nSamples[simNum, ])
+res3Old$logMetaE[simNum]
+res3Old$logMetaERelevance[simNum]
+
+sum(res3Old$paths[[simNum]]$logSamplePaths[, 523])
 
 
 
 mean(res3$logMetaE)
 sd(res3$logMetaE)
 
-mean(res3$logMetaEMinEffi)
-sd(res3$logMetaEMinEffi)
+mean(res3$logMetaERelevance)
+sd(res3$logMetaERelevance)
 
 mean(res3$alternativeProportion)
 sd(res3$alternativeProportion)
 
-mean(res3$minEffiProportion)
-sd(res3$minEffiProportion)
+mean(res3$relevanceProportion)
+sd(res3$relevanceProportion)
 
 mean(res3$totalStoppingTimes)
 sd(res3$totalStoppingTimes)
